@@ -16,8 +16,9 @@ import sdk from "@crossmarkio/sdk";
 
 // initializing xumm wallet library by passing in your api key
 // TODO: scrub this API key
-const xumm = new Xumm("62ef6e2a-414b-4d53-933d-4fa4ad37b09c");
+const xumm = new Xumm(process.env.REACT_APP_XUMM_API_KEY);
 
+console.log({ XUMM_API_KEY: process.env.REACT_APP_XUMM_API_KEY });
 // define our react app
 export default function App() {
   // defining state bounded variables, some with default values using React functions
