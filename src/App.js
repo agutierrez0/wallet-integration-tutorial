@@ -18,7 +18,6 @@ import sdk from "@crossmarkio/sdk";
 // TODO: scrub this API key
 const xumm = new Xumm(process.env.REACT_APP_XUMM_API_KEY);
 
-console.log({ XUMM_API_KEY: process.env.REACT_APP_XUMM_API_KEY });
 // define our react app
 export default function App() {
   // defining state bounded variables, some with default values using React functions
