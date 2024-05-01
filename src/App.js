@@ -1,9 +1,15 @@
 // standard react imports
 import { useState } from "react";
 
-// adding necessary types/functions from wallet libraries
+// import client from xrpl library
 import { Client } from "xrpl";
-import { connectToGem, signTransactionUsingGemWallet } from "./utils/gemwallet";
+
+// import necessary helpers from wallet/blockchain libraries
+import {
+  connectToGem,
+  getAddressUsingGemWallet,
+  signTransactionUsingGemWallet,
+} from "./utils/gemwallet";
 import {
   connectToXumm,
   signTransactionUsingXummWallet,
@@ -12,9 +18,8 @@ import {
   connectToCrossmark,
   signTransactionUsingCrossmark,
 } from "./utils/crossmark";
-import { getAddress } from "@gemwallet/api";
 
-// define our react app
+// define react app
 export default function App() {
   // defining state bounded variables, some with default values using React functions
   const [gemWalletConnected, setGemWalletConnected] = useState(false);
@@ -23,14 +28,19 @@ export default function App() {
     useState(false);
   const [transactionHash, setTransactionHash] = useState("");
   const [domain, setDomain] = useState("");
+  const [address, setAddress] = useState("");
 
+  // handles connecting to wallets using their library
   const handleConnectGem = async () => {
     var result = await connectToGem();
+    var addr = await getAddressUsingGemWallet();
+    setAddress(addr);
     setGemWalletConnected(result);
   };
 
   const handleConnectCrossmark = async () => {
     var result = await connectToCrossmark();
+    setAddress(result);
     setCrossmarkWalletConnected(!!result);
   };
 
@@ -40,9 +50,11 @@ export default function App() {
     console.log(result);
     if (result.jwt) {
       setXummWalletConnected(true);
+      setAddress(result.me.account);
     }
   };
 
+  // one universal function for signing, uses wallet you "connected with" before
   const handleSignTransaction = async () => {
     let signedTransactionResult;
     if (gemWalletConnected) {
@@ -60,9 +72,11 @@ export default function App() {
     setTransactionHash(signedTransactionResult);
   };
 
+  // Initializing xrpl client and specifying the network URL
+  const [client] = useState(new Client("wss://s.altnet.rippletest.net:51233/"));
+
   /* 
-  Initializing xrpl client and specifying the network URL, 
-  options below:
+  Other options below:
 
   Testnet
   WebSocket -> wss://s.altnet.rippletest.net:51233/
@@ -77,22 +91,18 @@ export default function App() {
   JSON-RPC -> https://xahau-test.net/
   */
 
-  const [client] = useState(new Client("wss://s.altnet.rippletest.net:51233/"));
-
-  const handleSubmitTransaction = async (signedTransactionResult) => {
-    {
-      const address = getAddress;
-      client
-        .connect()
-        .then(async () => {
-          const res = await client.submit(signedTransactionResult, {
-            wallet: (await getAddress()).result,
-          });
-        })
-        .then((error) => {
-          console.log(error);
+  const handleSubmitTransaction = async () => {
+    console.log(1);
+    client
+      .connect()
+      .then(async () => {
+        client.submit(transactionHash).then((res) => {
+          // do something with the response
         });
-    }
+      })
+      .then((error) => {
+        console.log(error);
+      });
   };
 
   // webpage layout using state bounded variables
@@ -118,6 +128,7 @@ export default function App() {
         </>
       ) : (
         <>
+          <p>Your address: {address}</p>
           <label>Enter a domain:</label>
           <input onChange={(e) => setDomain(e.target.value)}></input>
           <p>This will be added to the domain parameter in your transaction.</p>
