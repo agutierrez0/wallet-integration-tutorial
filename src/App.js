@@ -47,7 +47,6 @@ export default function App() {
   const handleConnectXumm = async () => {
     var result = await connectToXumm();
 
-    console.log(result);
     if (result.jwt) {
       setXummWalletConnected(true);
       setAddress(result.me.account);
@@ -92,7 +91,6 @@ export default function App() {
   */
 
   const handleSubmitTransaction = async () => {
-    console.log(1);
     client
       .connect()
       .then(async () => {
