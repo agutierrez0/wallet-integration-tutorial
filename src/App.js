@@ -31,7 +31,6 @@ export default function App() {
 
   const handleConnectCrossmark = async () => {
     var result = await connectToCrossmark();
-
     setCrossmarkWalletConnected(!!result);
   };
 
@@ -81,16 +80,19 @@ export default function App() {
   const [client] = useState(new Client("wss://s.altnet.rippletest.net:51233/"));
 
   const handleSubmitTransaction = async (signedTransactionResult) => {
-    client
-      .connect()
-      .then(async () => {
-        const res = await client.submit(signedTransactionResult, {
-          wallet: (await getAddress()).result,
+    {
+      const address = getAddress;
+      client
+        .connect()
+        .then(async () => {
+          const res = await client.submit(signedTransactionResult, {
+            wallet: (await getAddress()).result,
+          });
+        })
+        .then((error) => {
+          console.log(error);
         });
-      })
-      .then((error) => {
-        console.log(error);
-      });
+    }
   };
 
   // webpage layout using state bounded variables
