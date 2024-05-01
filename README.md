@@ -2,8 +2,9 @@
 
 This is a React app which leverages different Web3 wallets' libraries to sign a transaction and uses the xrpl4js library to submit transactions to the ledger.
 
-New features:
-- The app allows you to set your own customer domain
+Features:
+- Submit an `AccountSet` transaction and set your own `Domain` in the `Transaction` field.
+- Sign transactions using Xumm, Crossmark, or GemWallet, and submit using the `xrpl` library.
 
 ## 📄 Instructions for getting started
 
@@ -21,6 +22,7 @@ You can replace `{your-xumm-api-key}` with the API key provided by Xumm.
 > npm install
 ```
 
+This will install necessary dependencies from libraries such as [xumm](https://www.npmjs.com/package/xumm), [crossmark](https://www.npmjs.com/package/@crossmarkio/sdk), [gemwallet](https://www.npmjs.com/package/@gemwallet/api), [xrpl](https://www.npmjs.com/package/xrpl) and more...
 ## 🚀 Starting the app
 
 ```bash
