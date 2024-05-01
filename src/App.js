@@ -1,22 +1,18 @@
 // standard react imports
-import { useEffect, useState } from "react";
+import { useState } from "react";
 
 // adding necessary types/functions from wallet libraries
+import { Client } from "xrpl";
+import { connectToGem, signTransactionUsingGemWallet } from "./utils/gemwallet";
 import {
-  isInstalled,
-  getAddress,
-  getNetwork,
-  signMessage,
-  signTransaction,
-  getPublicKey,
-} from "@gemwallet/api";
-import { Client, convertStringToHex, verifySignature } from "xrpl";
-import { Xumm } from "xumm";
-import sdk from "@crossmarkio/sdk";
-
-// initializing xumm wallet library by passing in your api key
-// TODO: scrub this API key
-const xumm = new Xumm(process.env.REACT_APP_XUMM_API_KEY);
+  connectToXumm,
+  signTransactionUsingXummWallet,
+} from "./utils/xamanwallet";
+import {
+  connectToCrossmark,
+  signTransactionUsingCrossmark,
+} from "./utils/crossmark";
+import { getAddress } from "@gemwallet/api";
 
 // define our react app
 export default function App() {
@@ -25,165 +21,75 @@ export default function App() {
   const [xummWalletConnected, setXummWalletConnected] = useState(false);
   const [crossmarkWalletConnected, setCrossmarkWalletConnected] =
     useState(false);
-  const [address, setAddress] = useState();
-  const [network, setNetwork] = useState();
-  const [account, setAccount] = useState("");
   const [transactionHash, setTransactionHash] = useState("");
-  const [userToken, setUserToken] = useState("");
   const [domain, setDomain] = useState("");
 
-  /* 
-  TODO: clean up
-  initializing xrpl client and specifying the network URL, options below:
-  Testnet WebSocket -> wss://s.altnet.rippletest.net:51233/
-  Testnet JSON-RPC -> https://s.altnet.rippletest.net:51234/
+  const handleConnectGem = async () => {
+    var result = await connectToGem();
+    setGemWalletConnected(result);
+  };
 
-Devnet Servers
-// WebSocket
-wss://s.devnet.rippletest.net:51233/
+  const handleConnectCrossmark = async () => {
+    var result = await connectToCrossmark();
 
-// JSON-RPC
-https://s.devnet.rippletest.net:51234/
-Xahau-Testnet Servers
-// WebSocket
-wss://xahau-test.net/
+    setCrossmarkWalletConnected(!!result);
+  };
 
-// JSON-RPC
-https://xahau-test.net/
-  */
-  //
-  const [client] = useState(new Client("wss://s.altnet.rippletest.net:51233/"));
+  const handleConnectXumm = async () => {
+    var result = await connectToXumm();
 
-  // check to see if xumm wallet is connected
-  // TODO: clean up this, maybe different method
-  useEffect(() => {
-    if (account) {
+    console.log(result);
+    if (result.jwt) {
       setXummWalletConnected(true);
     }
-  }, [account]);
-
-  // handles connection to crossmark
-  const handleConnectCrossmark = () => {
-    sdk.methods.signInAndWait().then((res) => {
-      if (res.response.data) {
-        setCrossmarkWalletConnected(true);
-        setAccount(res.response.data.address);
-      }
-    });
   };
 
-  // handles signing a transaction using crossmark
-  const handleSignTransactionOnCrossmark = () => {
-    sdk.methods
-      .signAndWait({
-        TransactionType: "AccountSet",
-        Domain: convertStringToHex("april10.com"),
-        Account: account,
-      })
-      .then((res) => {
-        setTransactionHash(res.response.data.txBlob);
-      });
-  };
-
-  // handles submitting a transaction using crossmark
-  // TODO: probably can make one universal method for submitting this
-  const handleSubmitTransactionWithCrossmark = () => {
-    client.connect().then(() => {
-      client.submit(transactionHash);
-    });
-  };
-
-  // handle connecting to gem wallet
-  const handleConnectGem = () => {
-    isInstalled().then((isInstalled) => {
-      const hasConnected = isInstalled.result.isInstalled;
-      if (hasConnected) {
-        getAddress().then((address) => {
-          console.log(`Your address: `, address.result.address);
-          setAddress(address.result.address);
-        });
-
-        getNetwork().then((network) => {
-          console.log(`Your network: `, network);
-          setNetwork(network.result);
-        });
-
-        setGemWalletConnected(true);
-      }
-    });
-  };
-
-  // handle signing a transaction using gem wallet
-  const handleSignTransactionUsingGemWallet = () => {
+  const handleSignTransaction = async () => {
+    let signedTransactionResult;
     if (gemWalletConnected) {
-      signMessage("You have accessed Angel's Gem Wallet website.").then(
-        (signedMessage) => console.log("Signed message: ", signedMessage)
-      );
+      signedTransactionResult = await signTransactionUsingGemWallet(domain);
     }
+
+    if (xummWalletConnected) {
+      signedTransactionResult = await signTransactionUsingXummWallet(domain);
+    }
+
+    if (crossmarkWalletConnected) {
+      signedTransactionResult = await signTransactionUsingCrossmark(domain);
+    }
+
+    setTransactionHash(signedTransactionResult);
   };
 
-  // TODO: sign using gem, submit using xrpl, but should be in two diff methods
-  const handleSubmitTransaction = async () => {
-    const transactionBlob = {
-      transaction: {
-        TransactionType: "AccountSet",
-        Domain: "616E67656C2E636F6D",
-      },
-    };
+  /* 
+  Initializing xrpl client and specifying the network URL, 
+  options below:
 
-    signTransaction(transactionBlob)
-      .then((res) => {
-        console.log("result when signing transaction");
+  Testnet
+  WebSocket -> wss://s.altnet.rippletest.net:51233/
+  JSON-RPC -> https://s.altnet.rippletest.net:51234/
 
-        const signedTransactionResult = res.result.signature;
-        console.log({ signedTransactionResult });
+  Devnet
+  WebSocket -> wss://s.devnet.rippletest.net:51233/
+  JSON-RPC -> https://s.devnet.rippletest.net:51234/
 
-        getPublicKey().then((res) => {
-          const publicKey = res.result.publicKey;
-          const verifyResult = verifySignature(
-            signedTransactionResult,
-            publicKey
-          );
-          console.log({ verifyResult });
-        });
+  Xahau-Testnet Servers
+  WebSocket -> wss://xahau-test.net/
+  JSON-RPC -> https://xahau-test.net/
+  */
 
-        client.connect().then(() => {
-          console.log("before submitting to xrp ledger ");
-          client.submit(signedTransactionResult);
+  const [client] = useState(new Client("wss://s.altnet.rippletest.net:51233/"));
+
+  const handleSubmitTransaction = async (signedTransactionResult) => {
+    client
+      .connect()
+      .then(async () => {
+        const res = await client.submit(signedTransactionResult, {
+          wallet: (await getAddress()).result,
         });
       })
       .then((error) => {
         console.log(error);
-      });
-  };
-
-  // handle connecting to Xumm wallet
-  const handleConnectXumm = () => {
-    const result = xumm.authorize().then((res) => {
-      console.log({ res });
-
-      if (res.jwt) {
-        setUserToken(res.jwt);
-      }
-      if (res.me) {
-        setAccount(res.me.account);
-        setDomain(res.me.domain);
-      }
-    });
-  };
-
-  // handle submitting a transaction using Xumm
-  const submitTransactionUsingXumm = () => {
-    const payload = xumm.payload
-      ?.create({
-        user_token: userToken,
-        txjson: {
-          TransactionType: "AccountSet",
-          Domain: convertStringToHex("wednesday.com"),
-        },
-      })
-      .then((res) => {
-        console.log({ res });
       });
   };
 
@@ -197,80 +103,37 @@ https://xahau-test.net/
         flexDirection: "column",
       }}
     >
-      {!gemWalletConnected && !xummWalletConnected && (
+      <h2>Wallet Integration App</h2>
+
+      {!gemWalletConnected &&
+      !xummWalletConnected &&
+      !crossmarkWalletConnected ? (
         <>
-          <h2>Gem Wallet App</h2>
-          <button onClick={handleConnectGem}>
-            Click to connect Gem Wallet
-          </button>
-          <button onClick={handleConnectXumm}>
-            Click to connect Xumm Wallet
-          </button>
-          <button onClick={handleConnectCrossmark}>
-            Click to connect Crossmark Wallet
-          </button>
+          <p>Please choose a wallet from below:</p>
+          <button onClick={handleConnectGem}>Gem Wallet</button>
+          <button onClick={handleConnectXumm}>Xumm Wallet</button>
+          <button onClick={handleConnectCrossmark}>Crossmark Wallet</button>
         </>
-      )}
+      ) : (
+        <>
+          <label>Enter a domain:</label>
+          <input onChange={(e) => setDomain(e.target.value)}></input>
+          <p>This will be added to the domain parameter in your transaction.</p>
+          <button disabled={!domain} onClick={handleSignTransaction}>
+            Sign transaction
+          </button>
 
-      {gemWalletConnected && (
-        <div>
-          <div>{address && <>your address: {address}</>}</div>
-
-          <div style={{ marginTop: "24px", alignItems: "center" }}>
-            details about your network
-          </div>
-
-          {network && (
-            <ul>
-              <li>chain: {network.chain}</li>
-              <li>network: {network.network}</li>
-              <li>websocket: {network.websocket}</li>
-            </ul>
+          {transactionHash && (
+            <>
+              <p>Your transaction hash:</p>
+              <p style={{ wordWrap: "break-word", width: "1000px" }}>
+                {transactionHash}
+              </p>
+              <button onClick={handleSubmitTransaction}>
+                Submit transaction on XRPL
+              </button>
+            </>
           )}
-
-          <div>
-            <button onClick={handleSignTransactionUsingGemWallet}>
-              Click to sign Angel's message
-            </button>
-          </div>
-
-          <div>
-            <button onClick={handleSubmitTransaction}>
-              Click to submit a transaction
-            </button>
-          </div>
-        </div>
-      )}
-
-      {xummWalletConnected && (
-        <>
-          <h2>Xumm Wallet App</h2>
-
-          <p>domain: {domain}</p>
-          <p>account: {account}</p>
-
-          <button onClick={submitTransactionUsingXumm}>
-            submit accountset transaction
-          </button>
-        </>
-      )}
-
-      {crossmarkWalletConnected && (
-        <>
-          <h2>Crossmark Wallet App</h2>
-
-          <p>transaction hash: {transactionHash} </p>
-
-          <button onClick={handleSignTransactionOnCrossmark}>
-            sign transaction
-          </button>
-
-          <button
-            onClick={handleSubmitTransactionWithCrossmark}
-            disabled={!transactionHash}
-          >
-            submit transaction
-          </button>
         </>
       )}
     </div>
