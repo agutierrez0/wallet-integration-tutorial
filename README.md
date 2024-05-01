@@ -6,7 +6,7 @@ Features:
 - Submit an `AccountSet` transaction and set your own `Domain` in the `Transaction` field.
 - Sign transactions using Xumm, Crossmark, or GemWallet, and submit using the `xrpl` library.
 
-## 📄 Instructions for getting started
+## 📄 Instructions for Getting Started
 
 The following environment variables need to be defined, you can create a file `.env.local` in the root directory with the following fields filled in:
 
@@ -16,14 +16,14 @@ REACT_APP_XUMM_API_KEY={your-xumm-api-key}
 
 You can replace `{your-xumm-api-key}` with the API key provided by Xumm.
 
-## 📦 Install dependencies
+## 📦 Install Dependencies
 
 ```bash
 > npm install
 ```
 
 This will install necessary dependencies from libraries such as [xumm](https://www.npmjs.com/package/xumm), [crossmark](https://www.npmjs.com/package/@crossmarkio/sdk), [gemwallet](https://www.npmjs.com/package/@gemwallet/api), [xrpl](https://www.npmjs.com/package/xrpl) and more...
-## 🚀 Starting the app
+## 🚀 Starting the Application
 
 ```bash
 > npm start
