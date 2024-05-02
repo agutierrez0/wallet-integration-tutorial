@@ -13,8 +13,6 @@ export const connectToXumm = async () => {
 export const signTransactionUsingXummWallet = async (domain) => {
   // set up payload for xumm
   const myHeaders = new Headers();
-  myHeaders.append("X-API-Secret", "f99700b1-1d61-44d5-800f-f3b09e2953fc");
-  myHeaders.append("X-API-Key", "f63d25c3-d99e-4444-89fe-ed6d5a9bcfad");
   myHeaders.append("Content-Type", "application/json");
 
   const raw = JSON.stringify({
