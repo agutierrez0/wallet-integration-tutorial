@@ -3,6 +3,8 @@
   "version": "1.0.1",
   "private": true,
   "dependencies": {
+    "@crossmarkio/sdk": "^0.3.7",
+    "@gemwallet/api": "^3.7.0",
     "@testing-library/jest-dom": "^5.17.0",
     "@testing-library/react": "^13.4.0",
     "@testing-library/user-event": "^13.5.0",
@@ -12,8 +14,7 @@
     "web-vitals": "^2.1.4",
     "xrpl": "^3.0.0",
     "xumm": "^1.7.7",
-    "@crossmarkio/sdk": "^0.3.7",
-    "@gemwallet/api": "^3.7.0"
+    "xumm-sdk": "^1.11.1"
   },
   "scripts": {
     "start": "react-scripts start",
@@ -38,5 +39,6 @@
       "last 1 firefox version",
       "last 1 safari version"
     ]
-  }
+  },
+  "proxy": "https://xumm.app/api/v1/platform/payload"
 }
