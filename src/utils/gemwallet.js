@@ -29,6 +29,7 @@ export const signTransactionUsingGemWallet = async (domain) => {
 
   // sign transaction
   const signResult = await signTransaction(transactionBlob);
+  console.log({ signResult });
   return signResult.result.signature;
 };
 
