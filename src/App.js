@@ -31,6 +31,7 @@ export default function App() {
   const [transactionBlob, setTransactionBlob] = useState("");
   const [domain, setDomain] = useState("");
   const [address, setAddress] = useState("");
+  const [resultHash, setResultHash] = useState("");
   const [isSubmittingTransaction, setIsSubmittingTransaction] = useState("");
   const [successfullySubmitted, setSuccessfullySubmitted] = useState();
 
@@ -40,7 +41,9 @@ export default function App() {
     var addr = await getAddressUsingGemWallet();
     setAddress(addr);
     setGemWalletConnected(result);
+  };
 
+  const handleSignGem = async () => {
     const signedTransactionResult = await signTransactionUsingGemWallet(domain);
     setTransactionBlob(signedTransactionResult);
   };
@@ -49,19 +52,16 @@ export default function App() {
     var result = await connectToCrossmark();
     setAddress(result);
     setCrossmarkWalletConnected(!!result);
+  };
 
+  const handleSignCrossMark = async () => {
     const signedTransactionResult = await signTransactionUsingCrossmark(domain);
     setTransactionBlob(signedTransactionResult);
   };
 
   const handleConnectXumm = async () => {
-    setXummWalletConnected(true);
-    //setAddress(result.me.account);
-    const signedTransactionResult = await signTransactionUsingXummWallet(
-      domain
-    );
-    setTransactionBlob(signedTransactionResult);
-    handleLogOutOfXumm();
+    connectToXumm();
+    signTransactionUsingXummWallet(domain, address);
   };
 
   // Initializing xrpl client and specifying the network URL
@@ -93,11 +93,7 @@ export default function App() {
 
           if (res.result.hash) {
             setSuccessfullySubmitted(true);
-
-            setInterval(() => {
-              window.location.href =
-                "https://test.bithomp.com/explorer/" + res.result.hash;
-            }, 1000);
+            setResultHash(res.result.hash);
           }
         });
       })
@@ -122,19 +118,10 @@ export default function App() {
         !crossmarkWalletConnected &&
         !xummWalletConnected && (
           <>
-            <label>Enter a domain:</label>
-            <input onChange={(e) => setDomain(e.target.value)}></input>
-
-            {domain && (
-              <>
-                <p>Sign with:</p>
-                <button onClick={handleConnectGem}>Gem Wallet</button>
-                <button onClick={handleConnectXumm}>Xumm Wallet</button>
-                <button onClick={handleConnectCrossmark}>
-                  Crossmark Wallet
-                </button>
-              </>
-            )}
+            <p>Choose a wallet</p>
+            <button onClick={handleConnectGem}>Gem Wallet</button>
+            <button onClick={handleConnectXumm}>Xumm Wallet</button>
+            <button onClick={handleConnectCrossmark}>Crossmark Wallet</button>
           </>
         )}
 
@@ -143,8 +130,33 @@ export default function App() {
         crossmarkWalletConnected) && (
         <>
           <p>Your address: {address}</p>
-          <p>Your domain: {domain}</p>
 
+          <label>Enter a domain:</label>
+          <input onChange={(e) => setDomain(e.target.value)}></input>
+
+          {(gemWalletConnected || crossmarkWalletConnected) && (
+            <>
+              <button
+                style={{ margin: "8px" }}
+                onClick={
+                  gemWalletConnected ? handleSignGem : handleSignCrossMark
+                }
+              >
+                sign transaction
+              </button>
+            </>
+          )}
+
+          {xummWalletConnected && (
+            <>
+              <button
+                style={{ margin: "8px" }}
+                onClick={handleSubmitTransaction}
+              >
+                sign and submit transaction
+              </button>
+            </>
+          )}
           {transactionBlob && (
             <>
               <p>Your signed transaction blob:</p>
@@ -158,13 +170,33 @@ export default function App() {
                 Submit transaction on XRPL
               </button>
 
-              {isSubmittingTransaction && <b>Submitting your transaction...</b>}
-              {successfullySubmitted && (
-                <b style={{ color: "green" }}>
-                  Your transaction has been successfully submitted 🎉,
-                  redirecting you to bithomp.
-                </b>
+              {isSubmittingTransaction && (
+                <b style={{ margin: "8px" }}>Submitting your transaction...</b>
               )}
+            </>
+          )}
+
+          {successfullySubmitted && (
+            <>
+              <b style={{ color: "green", marginTop: "8px" }}>
+                Your transaction has been successfully submitted 🎉
+              </b>
+
+              <button
+                style={{ margin: "8px" }}
+                onClick={() =>
+                  window.open(
+                    "https://test.bithomp.com/explorer/" + resultHash,
+                    "_blank"
+                  )
+                }
+              >
+                View on bithomp
+              </button>
+
+              <button onClick={() => window.location.reload()}>
+                Return to start
+              </button>
             </>
           )}
         </>

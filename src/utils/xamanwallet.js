@@ -10,42 +10,22 @@ export const connectToXumm = async () => {
 };
 
 // handle submitting a transaction using Xumm
-export const signTransactionUsingXummWallet = async (domain) => {
+export const signTransactionUsingXummWallet = async (domain, account) => {
   // set up payload for xumm
-  const myHeaders = new Headers();
-  myHeaders.append("Content-Type", "application/json");
-
-  const raw = JSON.stringify({
-    options: {
-      submit: "true",
-      multisign: "false",
-      return_url: {
-        app: "https://ripple.com/insights/ripple-pilots-a-private-ledger-for-central-banks-launching-cbdcs/",
-        web: "https://ripple.com/insights/ripple-pilots-a-private-ledger-for-central-banks-launching-cbdcs/",
-      },
-    },
-    custom_meta: {
-      instruction: "Thank you for your purchase of the X10 Widget!",
-    },
+  const payload = {
     txjson: {
-      TransactionType: "Payment",
-      Destination: "rs6DZmsbM4SjJXjkyNfR2857dg1hKg6bVr",
-      Amount: "12000000",
+      TransactionType: "AccountSet",
+      Domain: convertStringToHex(domain),
+      Account: account,
     },
-  });
-
-  const requestOptions = {
-    method: "POST",
-    headers: myHeaders,
-    body: raw,
-    mode: "no-cors",
-    redirect: "follow",
   };
 
-  fetch("https://xumm.app/api/v1/platform/payload", requestOptions)
-    .then((response) => response.text())
-    .then((result) => console.log(result))
-    .catch((error) => console.error(error));
+  // create payload
+  const res = await xumm.payload.create(payload);
+
+  // new window opens, prompts phone to sign transaction & submit
+  window.open(res.next.always);
+  console.log({ res });
 };
 
 export const handleLogOutOfXumm = async () => {
