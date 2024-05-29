@@ -27,3 +27,7 @@ export const signTransactionUsingXummWallet = async (domain, account) => {
   window.open(res.next.always);
   console.log({ res });
 };
+
+export const handleLogOutOfXumm = async () => {
+  await xumm.logout();
+};

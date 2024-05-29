@@ -12,6 +12,8 @@ import {
 } from "./utils/gemwallet";
 import {
   connectToXumm,
+  handleLogOutOfXumm,
+  signTransactionUsingXummSdk,
   signTransactionUsingXummWallet,
 } from "./utils/xamanwallet";
 import {
@@ -26,9 +28,12 @@ export default function App() {
   const [xummWalletConnected, setXummWalletConnected] = useState(false);
   const [crossmarkWalletConnected, setCrossmarkWalletConnected] =
     useState(false);
-  const [transactionHash, setTransactionHash] = useState("");
+  const [transactionBlob, setTransactionBlob] = useState("");
   const [domain, setDomain] = useState("");
   const [address, setAddress] = useState("");
+  const [resultHash, setResultHash] = useState("");
+  const [isSubmittingTransaction, setIsSubmittingTransaction] = useState("");
+  const [successfullySubmitted, setSuccessfullySubmitted] = useState();
 
   // handles connecting to wallets using their library
   const handleConnectGem = async () => {
@@ -38,37 +43,25 @@ export default function App() {
     setGemWalletConnected(result);
   };
 
+  const handleSignGem = async () => {
+    const signedTransactionResult = await signTransactionUsingGemWallet(domain);
+    setTransactionBlob(signedTransactionResult);
+  };
+
   const handleConnectCrossmark = async () => {
     var result = await connectToCrossmark();
     setAddress(result);
     setCrossmarkWalletConnected(!!result);
   };
 
-  const handleConnectXumm = async () => {
-    var result = await connectToXumm();
-
-    if (result.jwt) {
-      setXummWalletConnected(true);
-      setAddress(result.me.account);
-    }
+  const handleSignCrossMark = async () => {
+    const signedTransactionResult = await signTransactionUsingCrossmark(domain);
+    setTransactionBlob(signedTransactionResult);
   };
 
-  // one universal function for signing, uses wallet you "connected with" before
-  const handleSignTransaction = async () => {
-    let signedTransactionResult;
-    if (gemWalletConnected) {
-      signedTransactionResult = await signTransactionUsingGemWallet(domain);
-    }
-
-    if (xummWalletConnected) {
-      signedTransactionResult = await signTransactionUsingXummWallet(domain);
-    }
-
-    if (crossmarkWalletConnected) {
-      signedTransactionResult = await signTransactionUsingCrossmark(domain);
-    }
-
-    setTransactionHash(signedTransactionResult);
+  const handleConnectXumm = async () => {
+    connectToXumm();
+    signTransactionUsingXummWallet(domain, address);
   };
 
   // Initializing xrpl client and specifying the network URL
@@ -91,11 +84,17 @@ export default function App() {
   */
 
   const handleSubmitTransaction = async () => {
+    setIsSubmittingTransaction(true);
     client
       .connect()
       .then(async () => {
-        client.submit(transactionHash).then((res) => {
-          // do something with the response
+        client.submitAndWait(transactionBlob).then((res) => {
+          setIsSubmittingTransaction(false);
+
+          if (res.result.hash) {
+            setSuccessfullySubmitted(true);
+            setResultHash(res.result.hash);
+          }
         });
       })
       .then((error) => {
@@ -116,32 +115,87 @@ export default function App() {
       <h2>Wallet Integration App</h2>
 
       {!gemWalletConnected &&
-      !xummWalletConnected &&
-      !crossmarkWalletConnected ? (
-        <>
-          <p>Please choose a wallet from below:</p>
-          <button onClick={handleConnectGem}>Gem Wallet</button>
-          <button onClick={handleConnectXumm}>Xumm Wallet</button>
-          <button onClick={handleConnectCrossmark}>Crossmark Wallet</button>
-        </>
-      ) : (
+        !crossmarkWalletConnected &&
+        !xummWalletConnected && (
+          <>
+            <p>Choose a wallet</p>
+            <button onClick={handleConnectGem}>Gem Wallet</button>
+            <button onClick={handleConnectXumm}>Xumm Wallet</button>
+            <button onClick={handleConnectCrossmark}>Crossmark Wallet</button>
+          </>
+        )}
+
+      {(gemWalletConnected ||
+        xummWalletConnected ||
+        crossmarkWalletConnected) && (
         <>
           <p>Your address: {address}</p>
+
           <label>Enter a domain:</label>
           <input onChange={(e) => setDomain(e.target.value)}></input>
-          <p>This will be added to the domain parameter in your transaction.</p>
-          <button disabled={!domain} onClick={handleSignTransaction}>
-            Sign transaction
-          </button>
 
-          {transactionHash && (
+          {(gemWalletConnected || crossmarkWalletConnected) && (
             <>
-              <p>Your transaction hash:</p>
+              <button
+                style={{ margin: "8px" }}
+                onClick={
+                  gemWalletConnected ? handleSignGem : handleSignCrossMark
+                }
+              >
+                sign transaction
+              </button>
+            </>
+          )}
+
+          {xummWalletConnected && (
+            <>
+              <button
+                style={{ margin: "8px" }}
+                onClick={handleSubmitTransaction}
+              >
+                sign and submit transaction
+              </button>
+            </>
+          )}
+          {transactionBlob && (
+            <>
+              <p>Your signed transaction blob:</p>
               <p style={{ wordWrap: "break-word", width: "1000px" }}>
-                {transactionHash}
+                {transactionBlob}
               </p>
-              <button onClick={handleSubmitTransaction}>
+              <button
+                disabled={isSubmittingTransaction}
+                onClick={handleSubmitTransaction}
+              >
                 Submit transaction on XRPL
+              </button>
+
+              {isSubmittingTransaction && (
+                <b style={{ margin: "8px" }}>Submitting your transaction...</b>
+              )}
+            </>
+          )}
+
+          {successfullySubmitted && (
+            <>
+              <b style={{ color: "green", marginTop: "8px" }}>
+                Your transaction has been successfully submitted 🎉
+              </b>
+
+              <button
+                style={{ margin: "8px" }}
+                onClick={() =>
+                  window.open(
+                    "https://test.bithomp.com/explorer/" + resultHash,
+                    "_blank"
+                  )
+                }
+              >
+                View on bithomp
+              </button>
+
+              <button onClick={() => window.location.reload()}>
+                Return to start
               </button>
             </>
           )}
