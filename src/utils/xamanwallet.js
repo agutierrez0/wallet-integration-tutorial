@@ -10,22 +10,41 @@ export const connectToXumm = async () => {
 };
 
 // handle submitting a transaction using Xumm
-export const signTransactionUsingXummWallet = async (domain, account) => {
+export const signTransactionUsingXummWallet = async (domain) => {
+  const myHeaders = new Headers();
+  myHeaders.append("X-API-Secret", "REMOVED-API-CREDENTIAL");
+  myHeaders.append("X-API-Key", "REMOVED-API-CREDENTIAL");
+  myHeaders.append("Content-Type", "application/json");
+
   // set up payload for xumm
-  const payload = {
+  const raw = JSON.stringify({
+    options: {
+      submit: "true",
+      multisign: "false",
+      expire: 300,
+      return_url: {
+        app: "http://localhost:3000",
+        web: "http://localhost:3000",
+      },
+    },
+    custom_meta: {
+      instruction: "Thank you for your purchase of the X10 Widget!",
+    },
     txjson: {
       TransactionType: "AccountSet",
       Domain: convertStringToHex(domain),
-      Account: account,
     },
+  });
+
+  const requestOptions = {
+    method: "POST",
+    headers: myHeaders,
+    body: raw,
   };
 
-  // create payload
-  const res = await xumm.payload.create(payload);
+  const response = await fetch("/api/v1/platform/payload", requestOptions);
 
-  // new window opens, prompts phone to sign transaction & submit
-  window.open(res.next.always);
-  console.log({ res });
+  return response.json();
 };
 
 export const handleLogOutOfXumm = async () => {
