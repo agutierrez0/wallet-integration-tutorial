@@ -12,8 +12,6 @@ import {
 } from "./utils/gemwallet";
 import {
   connectToXumm,
-  handleLogOutOfXumm,
-  signTransactionUsingXummSdk,
   signTransactionUsingXummWallet,
 } from "./utils/xamanwallet";
 import {
@@ -32,6 +30,7 @@ export default function App() {
   const [domain, setDomain] = useState("");
   const [address, setAddress] = useState("");
   const [resultHash, setResultHash] = useState("");
+  const [imagePng, setImagePng] = useState("");
   const [isSubmittingTransaction, setIsSubmittingTransaction] = useState("");
   const [successfullySubmitted, setSuccessfullySubmitted] = useState();
 
@@ -60,8 +59,13 @@ export default function App() {
   };
 
   const handleConnectXumm = async () => {
-    connectToXumm();
-    signTransactionUsingXummWallet(domain, address);
+    const res = await connectToXumm();
+
+    const res2 = await signTransactionUsingXummWallet(domain);
+
+    window.open(res2.next.always);
+    setXummWalletConnected(true);
+    setImagePng(res2.refs.qr_png);
   };
 
   // Initializing xrpl client and specifying the network URL
@@ -77,10 +81,6 @@ export default function App() {
   Devnet
   WebSocket -> wss://s.devnet.rippletest.net:51233/
   JSON-RPC -> https://s.devnet.rippletest.net:51234/
-
-  Xahau-Testnet Servers
-  WebSocket -> wss://xahau-test.net/
-  JSON-RPC -> https://xahau-test.net/
   */
 
   const handleSubmitTransaction = async () => {
@@ -118,10 +118,21 @@ export default function App() {
         !crossmarkWalletConnected &&
         !xummWalletConnected && (
           <>
-            <p>Choose a wallet</p>
-            <button onClick={handleConnectGem}>Gem Wallet</button>
-            <button onClick={handleConnectXumm}>Xumm Wallet</button>
-            <button onClick={handleConnectCrossmark}>Crossmark Wallet</button>
+            <label>Enter a domain:</label>
+            <input onChange={(e) => setDomain(e.target.value)}></input>
+
+            {domain && (
+              <>
+                <p>Choose a wallet</p>
+                <button onClick={handleConnectGem}>Gem Wallet</button>
+                <button onClick={handleConnectXumm}>Xumm Wallet</button>
+                <button onClick={handleConnectCrossmark}>
+                  Crossmark Wallet
+                </button>
+
+                <button onClick={handleSubmitTransaction}>submit</button>
+              </>
+            )}
           </>
         )}
 
@@ -129,13 +140,9 @@ export default function App() {
         xummWalletConnected ||
         crossmarkWalletConnected) && (
         <>
-          <p>Your address: {address}</p>
-
-          <label>Enter a domain:</label>
-          <input onChange={(e) => setDomain(e.target.value)}></input>
-
           {(gemWalletConnected || crossmarkWalletConnected) && (
             <>
+              <p>Your address: {address}</p>
               <button
                 style={{ margin: "8px" }}
                 onClick={
@@ -149,12 +156,9 @@ export default function App() {
 
           {xummWalletConnected && (
             <>
-              <button
-                style={{ margin: "8px" }}
-                onClick={handleSubmitTransaction}
-              >
-                sign and submit transaction
-              </button>
+              <p>Finish signing the transaction on your phone 👇🏽</p>
+
+              <img src={imagePng}></img>
             </>
           )}
           {transactionBlob && (
