@@ -129,8 +129,6 @@ export default function App() {
                 <button onClick={handleConnectCrossmark}>
                   Crossmark Wallet
                 </button>
-
-                <button onClick={handleSubmitTransaction}>submit</button>
               </>
             )}
           </>
