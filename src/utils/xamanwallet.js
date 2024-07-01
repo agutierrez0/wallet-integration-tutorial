@@ -23,7 +23,6 @@ export const signTransactionUsingXummWallet = async (domain) => {
       multisign: "false",
       expire: 300,
       return_url: {
-        app: "http://localhost:3000",
         web: "http://localhost:3000",
       },
     },
