@@ -4,12 +4,14 @@ import {
   signTransaction,
   getPublicKey,
   getAddress,
+  getNetwork,
 } from "@gemwallet/api";
 import { convertStringToHex, verifySignature } from "xrpl";
 
 // handle connecting to gem wallet
 export const connectToGem = async () => {
   const gemWalletInstalled = await isInstalled();
+  console.log({ gemWalletInstalled });
   return gemWalletInstalled.result.isInstalled;
 };
 
@@ -18,8 +20,8 @@ export const signTransactionUsingGemWallet = async (domain) => {
   // get address using gem wallet
   const address = await getAddressUsingGemWallet();
 
-  // set up transaction
-  const transactionBlob = {
+  // prepare transaction
+  const transactionJson = {
     transaction: {
       TransactionType: "AccountSet",
       Domain: convertStringToHex(domain),
@@ -28,7 +30,7 @@ export const signTransactionUsingGemWallet = async (domain) => {
   };
 
   // sign transaction
-  const signResult = await signTransaction(transactionBlob);
+  const signResult = await signTransaction(transactionJson);
   console.log({ signResult });
   return signResult.result.signature;
 };
@@ -37,6 +39,11 @@ export const signTransactionUsingGemWallet = async (domain) => {
 export const getAddressUsingGemWallet = async () => {
   const address = await getAddress();
   return address.result.address;
+};
+
+export const getNetworkUsingGemWallet = async () => {
+  const network = await getNetwork();
+  return network.result.websocket;
 };
 
 // validates signed transaction using gem wallet & xrpl

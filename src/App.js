@@ -8,6 +8,7 @@ import { Client } from "xrpl";
 import {
   connectToGem,
   getAddressUsingGemWallet,
+  getNetworkUsingGemWallet,
   signTransactionUsingGemWallet,
 } from "./utils/gemwallet";
 import {
@@ -31,6 +32,7 @@ export default function App() {
   const [address, setAddress] = useState("");
   const [resultHash, setResultHash] = useState("");
   const [imagePng, setImagePng] = useState("");
+  const [network, setNetwork] = useState("");
   const [isSubmittingTransaction, setIsSubmittingTransaction] = useState("");
   const [successfullySubmitted, setSuccessfullySubmitted] = useState();
 
@@ -38,6 +40,10 @@ export default function App() {
   const handleConnectGem = async () => {
     var result = await connectToGem();
     var addr = await getAddressUsingGemWallet();
+    var gemWalletNetwork = await getNetworkUsingGemWallet();
+    setNetwork(gemWalletNetwork);
+    console.log({ result });
+    console.log({ addr });
     setAddress(addr);
     setGemWalletConnected(result);
   };
@@ -59,9 +65,7 @@ export default function App() {
   };
 
   const handleConnectXumm = async () => {
-    const res = await connectToXumm();
-
-    const res2 = await signTransactionUsingXummWallet(domain);
+    const res2 = await signTransactionUsingXummWallet(domain, address);
 
     window.open(res2.next.always);
     setXummWalletConnected(true);
@@ -83,6 +87,7 @@ export default function App() {
   JSON-RPC -> https://s.devnet.rippletest.net:51234/
   */
 
+  // submit transaction using xrpljs library
   const handleSubmitTransaction = async () => {
     setIsSubmittingTransaction(true);
     client
@@ -141,6 +146,7 @@ export default function App() {
           {(gemWalletConnected || crossmarkWalletConnected) && (
             <>
               <p>Your address: {address}</p>
+              <p>Your network: {network}</p>
               <button
                 style={{ margin: "8px" }}
                 onClick={
