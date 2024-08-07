@@ -7,6 +7,8 @@ import { Client, Wallet, xrpToDrops, encode, convertStringToHex } from "xrpl";
 export default function App() {
   const [connected, setConnected] = useState(false);
   const [address, setAddress] = useState("");
+  const [ledgerResponse, setLedgerResponse] = useState("");
+  const [ledgerInstance, setLedgerInstance] = useState();
 
   function fetchAddress(xrp) {
     return xrp.getAddress("44'/144'/0'/0/0");
@@ -28,6 +30,18 @@ export default function App() {
     const client = new Client("wss://s.altnet.rippletest.net:51233");
     await client.connect();
 
+    setLedgerInstance(xrp);
+
+    // xrp.signTransaction("44'/144'/0'/0/0", prepared);
+
+    // console.log({ config: await xrp.getAppConfiguration() });
+
+    //.then((xrp) => prepareAndSign(xrp, 123))
+    //.then((signature) => console.log(`Signature: ${signature}`))
+    //.catch((e) => console.log(`An error occurred: `, e));
+  }
+
+  async function handleSignTransaction() {
     const newTx = {
       TransactionType: "AccountSet",
       Account: "rG12oUGgZ2rUVNTQ49GBoETQ1koxe6dW2X",
@@ -42,19 +56,14 @@ export default function App() {
     console.log({ txBefore: newTx, txAfter: betterPreppedTx });
 
     // const preparedTx = xrp.prepare();
-    const res = await xrp.signTransaction(
+    const res = await ledgerInstance.signTransaction(
       "44'/144'/0'/0/0",
       betterPreppedTx,
       true
     );
+
+    setLedgerResponse(res);
     console.log({ res });
-    // xrp.signTransaction("44'/144'/0'/0/0", prepared);
-
-    // console.log({ config: await xrp.getAppConfiguration() });
-
-    //.then((xrp) => prepareAndSign(xrp, 123))
-    //.then((signature) => console.log(`Signature: ${signature}`))
-    //.catch((e) => console.log(`An error occurred: `, e));
   }
 
   //   const handleConnectLedger = async () => {
@@ -95,10 +104,18 @@ export default function App() {
     >
       <h2>Wallet Integration App</h2>
 
-      <button onClick={handleConnection}>
-        {connected ? "Connected" : "Connect to Ledger"}
-      </button>
+      {connected ? (
+        <>
+          <p>Connected to Ledger</p>
+
+          <button onClick={handleSignTransaction}>sign transaction</button>
+        </>
+      ) : (
+        <button onClick={handleConnection}>Connect to Ledger</button>
+      )}
+
       {connected && <p>Address: {address}</p>}
+      {ledgerResponse && <p>Ledger Response: {ledgerResponse}</p>}
     </div>
   );
 }
