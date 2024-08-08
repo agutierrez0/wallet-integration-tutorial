@@ -2,13 +2,22 @@ import React, { useEffect, useState } from "react";
 import TransportWebUSB from "@ledgerhq/hw-transport-webusb";
 import TransportWebHID from "@ledgerhq/hw-transport-webhid";
 import Xrp from "@ledgerhq/hw-app-xrp";
-import { Client, Wallet, xrpToDrops, encode, convertStringToHex } from "xrpl";
+import {
+  Client,
+  Wallet,
+  xrpToDrops,
+  encode,
+  convertStringToHex,
+  decode,
+} from "xrpl";
 
 export default function App() {
   const [connected, setConnected] = useState(false);
   const [address, setAddress] = useState("");
+  const [publicKey, setPublicKey] = useState("");
   const [ledgerResponse, setLedgerResponse] = useState("");
   const [ledgerInstance, setLedgerInstance] = useState();
+  // const [client] = useState(new Client("wss://s.altnet.rippletest.net:51233"));
 
   function fetchAddress(xrp) {
     return xrp.getAddress("44'/144'/0'/0/0");
@@ -26,9 +35,7 @@ export default function App() {
     const address = await xrp.getAddress("44'/144'/0'/0/0");
     console.log({ address });
     setAddress(address.address);
-
-    const client = new Client("wss://s.altnet.rippletest.net:51233");
-    await client.connect();
+    setPublicKey(address.publicKey);
 
     setLedgerInstance(xrp);
 
@@ -41,7 +48,152 @@ export default function App() {
     //.catch((e) => console.log(`An error occurred: `, e));
   }
 
+  async function handleEnableClawback() {
+    const originalTransaction = {
+      TransactionType: "AccountSet",
+      Account: "rG12oUGgZ2rUVNTQ49GBoETQ1koxe6dW2X",
+      Sequence: 1993030,
+      Fee: "12",
+      LastLedgerSequence: 2938216,
+      SetFlag: 16,
+      SigningPubKey: publicKey.toUpperCase(),
+    };
+
+    const encodedOriginalTransaction = encode(originalTransaction);
+
+    console.log({ txAfter: encodedOriginalTransaction });
+
+    // const preparedTx = xrp.prepare();
+    const ledgerResponse = await ledgerInstance.signTransaction(
+      "44'/144'/0'/0/0",
+      encodedOriginalTransaction
+    );
+
+    console.log({ ledgerResponse });
+    originalTransaction["TxnSignature"] = ledgerResponse.toUpperCase();
+    originalTransaction["TxnSignature"] = ledgerResponse.toUpperCase();
+
+    // console.log({ newTx: oldTx, encodedNewTx:  });
+
+    const transactionBlob = encode(originalTransaction);
+
+    console.log({ originalTransaction, encodedTx: transactionBlob });
+
+    setLedgerResponse(ledgerResponse);
+    console.log({ res: ledgerResponse });
+    console.log({
+      ledgerResponse,
+      encodedTx: transactionBlob,
+    });
+
+    const client = new Client("wss://s.altnet.rippletest.net:51233");
+    await client.connect();
+
+    console.log({
+      oldTx: originalTransaction,
+      encodedTx: encode(originalTransaction),
+    });
+
+    const response = client
+      .submit(encode(originalTransaction))
+      .then((result) => console.log({ result }));
+    console.log({ response });
+  }
+
+  async function handleSendMoney() {
+    const originalTransaction = {
+      TransactionType: "Payment",
+      Account: address,
+      Destination: "rBfyStBKSF1qpzznwjbTV2KtHJ9Xg9dGp1",
+      Amount: {
+        currency: "USD",
+        issuer: address,
+        value: "100",
+      },
+      SigningPubKey: publicKey.toUpperCase(),
+      Sequence: 1993031,
+      Fee: "12",
+      LastLedgerSequence: 2938216,
+    };
+
+    const encodedOriginalTransaction = encode(originalTransaction);
+
+    // const preparedTx = xrp.prepare();
+    const ledgerResponse = await ledgerInstance.signTransaction(
+      "44'/144'/0'/0/0",
+      encodedOriginalTransaction
+    );
+
+    originalTransaction["TxnSignature"] = ledgerResponse.toUpperCase();
+
+    setLedgerResponse(ledgerResponse);
+
+    const client = new Client("wss://s.altnet.rippletest.net:51233");
+    await client.connect();
+
+    console.log({
+      oldTx: originalTransaction,
+      encodedTx: encode(originalTransaction),
+    });
+
+    const response = client
+      .submit(encode(originalTransaction))
+      .then((result) => console.log({ result }));
+    console.log({ response });
+  }
+
+  async function handleClawback() {
+    const originalTransaction = {
+      TransactionType: "Clawback",
+      Account: address,
+      Amount: {
+        currency: "USD",
+        issuer: "rBfyStBKSF1qpzznwjbTV2KtHJ9Xg9dGp1",
+        value: "50",
+      },
+      SigningPubKey: publicKey.toUpperCase(),
+      Sequence: 1993032,
+      Fee: "12",
+      LastLedgerSequence: 2938216,
+    };
+
+    const encodedOriginalTransaction = encode(originalTransaction);
+
+    // const preparedTx = xrp.prepare();
+    const ledgerResponse = await ledgerInstance.signTransaction(
+      "44'/144'/0'/0/0",
+      encodedOriginalTransaction
+    );
+
+    originalTransaction["TxnSignature"] = ledgerResponse.toUpperCase();
+
+    setLedgerResponse(ledgerResponse);
+
+    const client = new Client("wss://s.altnet.rippletest.net:51233");
+    await client.connect();
+
+    console.log({
+      oldTx: originalTransaction,
+      encodedTx: encode(originalTransaction),
+    });
+
+    const response = client
+      .submit(encode(originalTransaction))
+      .then((result) => console.log({ result }));
+    console.log({ response });
+  }
+
+  // brett address: rBfyStBKSF1qpzznwjbTV2KtHJ9Xg9dGp1
   async function handleSignTransaction() {
+    const oldTx = {
+      TransactionType: "AccountSet",
+      Account: "rG12oUGgZ2rUVNTQ49GBoETQ1koxe6dW2X",
+      Sequence: 1993029,
+      Fee: "12",
+      NetworkID: 1,
+      LastLedgerSequence: 2994216,
+    };
+
     const newTx = {
       TransactionType: "AccountSet",
       Account: "rG12oUGgZ2rUVNTQ49GBoETQ1koxe6dW2X",
@@ -108,7 +260,10 @@ export default function App() {
         <>
           <p>Connected to Ledger</p>
 
+          <button onClick={handleEnableClawback}>enable clawback</button>
           <button onClick={handleSignTransaction}>sign transaction</button>
+          <button onClick={handleSendMoney}>send money</button>
+          <button onClick={handleClawback}>do clawback</button>
         </>
       ) : (
         <button onClick={handleConnection}>Connect to Ledger</button>
