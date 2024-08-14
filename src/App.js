@@ -142,6 +142,112 @@ export default function App() {
     console.log({ response });
   }
 
+  async function handleSignerListSet() {
+    const originalTransaction = {
+      TransactionType: "SignerListSet",
+      Account: address,
+      SigningPubKey: publicKey.toUpperCase(),
+      Sequence: 1993033,
+      Fee: "12",
+      LastLedgerSequence: 3199047,
+      SignerQuorum: 3,
+      SignerEntries: [
+        {
+          SignerEntry: {
+            Account: "rsA2LpzuawewSBQXkiju3YQTMzW13pAAdW",
+            SignerWeight: 2,
+          },
+        },
+        {
+          SignerEntry: {
+            Account: "rUpy3eEg8rqjqfUoLeBnZkscbKbFsKXC3v",
+            SignerWeight: 1,
+          },
+        },
+        {
+          SignerEntry: {
+            Account: "raKEEVSGnKSD9Zyvxu4z6Pqpm4ABH8FS6n",
+            SignerWeight: 1,
+          },
+        },
+
+        {
+          SignerEntry: {
+            Account: "rfm9zzC183AA2ceerDWQkb9z1sfHokySRc",
+            SignerWeight: 1,
+          },
+        },
+
+        {
+          SignerEntry: {
+            Account: "rNdStFjvy3TXup8XT1iNGYGB29WZH4XhLa",
+            SignerWeight: 1,
+          },
+        },
+
+        {
+          SignerEntry: {
+            Account: "rwh8HuqDZohPyRkdNVtBgeNJJrCssoBPWi",
+            SignerWeight: 1,
+          },
+        },
+
+        {
+          SignerEntry: {
+            Account: "rK18uM6HUaeTw3UNkm53R8Xg9hcmvdh5Wq",
+            SignerWeight: 1,
+          },
+        },
+
+        {
+          SignerEntry: {
+            Account: "rwxj6RHmU6AtHq1iyD1bqoewPCUuNLyufm",
+            SignerWeight: 1,
+          },
+        },
+
+        // {
+        //   SignerEntry: {
+        //     Account: "rPwJH2Sjn9EiBewYZ1jvVtF88fF3PEdzEq",
+        //     SignerWeight: 1,
+        //   },
+        // },
+
+        // {
+        //   SignerEntry: {
+        //     Account: "rPwiaDngWYx6mqUXHGY29JV4dXwnbfGaeT",
+        //     SignerWeight: 1,
+        //   },
+        // },
+      ],
+    };
+
+    const encodedOriginalTransaction = encode(originalTransaction);
+
+    // const preparedTx = xrp.prepare();
+    const ledgerResponse = await ledgerInstance.signTransaction(
+      "44'/144'/0'/0/0",
+      encodedOriginalTransaction
+    );
+
+    originalTransaction["TxnSignature"] = ledgerResponse.toUpperCase();
+
+    setLedgerResponse(ledgerResponse);
+
+    const client = new Client("wss://s.altnet.rippletest.net:51233");
+    await client.connect();
+
+    console.log({
+      oldTx: originalTransaction,
+      encodedTx: encode(originalTransaction),
+    });
+
+    const response = client
+      .submit(encode(originalTransaction))
+      .then((result) => console.log({ result }));
+    console.log({ response });
+  }
+
   async function handleClawback() {
     const originalTransaction = {
       TransactionType: "Clawback",
@@ -264,6 +370,7 @@ export default function App() {
           <button onClick={handleSignTransaction}>sign transaction</button>
           <button onClick={handleSendMoney}>send money</button>
           <button onClick={handleClawback}>do clawback</button>
+          <button onClick={handleSignerListSet}>do signer list lest</button>
         </>
       ) : (
         <button onClick={handleConnection}>Connect to Ledger</button>
