@@ -1,25 +1,16 @@
 // add imports from crossmark & xrpl library
 import sdk from "@crossmarkio/sdk";
-import { convertStringToHex } from "xrpl";
 
 // handles connection to crossmark
 export const connectToCrossmark = async () => {
   const res = await sdk.methods.signInAndWait();
-  if (res.response.data) {
-    console.log(res.response.data);
-    return res.response.data.address;
-  }
+
+  return res;
 };
 
 // handles signing a transaction using crossmark
-export const signTransactionUsingCrossmark = async (domain) => {
-  const address = sdk.methods.getAddress();
-
-  const res = await sdk.methods.signAndWait({
-    TransactionType: "AccountSet",
-    Domain: convertStringToHex(domain),
-    Account: address,
-  });
+export const signTransactionUsingCrossmark = async (transaction) => {
+  const res = await sdk.methods.signAndWait(transaction);
 
   return res.response.data.txBlob;
 };
