@@ -2,7 +2,7 @@
 import { useEffect, useState } from "react";
 
 // import client from xrpl library
-import { Client, convertStringToHex } from "xrpl";
+import { Client, convertStringToHex, encode } from "xrpl";
 
 // import necessary helpers from wallet/blockchain libraries
 import {
@@ -16,6 +16,9 @@ import {
   connectToCrossmark,
   signTransactionUsingCrossmark,
 } from "./utils/crossmark";
+import { connectToLedger } from "./utils/ledger";
+import Xrp from "@ledgerhq/hw-app-xrp";
+import TransportWebUSB from "@ledgerhq/hw-transport-webusb";
 
 // define react app
 export default function App() {
@@ -24,9 +27,12 @@ export default function App() {
   const [xummWalletConnected, setXummWalletConnected] = useState(false);
   const [crossmarkWalletConnected, setCrossmarkWalletConnected] =
     useState(false);
+  const [ledgerConnected, setLedgerConnected] = useState(false);
+  const [ledgerInstance, setLedgerInstance] = useState();
   const [transactionBlob, setTransactionBlob] = useState();
   const [domain, setDomain] = useState("");
   const [address, setAddress] = useState("");
+  const [publicKey, setPublicKey] = useState();
   const [resultHash, setResultHash] = useState("");
   const [imagePng, setImagePng] = useState("");
   const [network, setNetwork] = useState("");
@@ -55,8 +61,9 @@ export default function App() {
       TransactionType: "AccountSet",
       Domain: convertStringToHex(domain),
       Account: address,
+      SigningPubKey: publicKey ? publicKey.toUpperCase() : undefined,
     });
-  }, [domain, address]);
+  }, [domain, address, publicKey]);
 
   // handles connecting to wallets using their library,
   // saves data to state bounded variable
@@ -85,6 +92,18 @@ export default function App() {
     setImagePng(result.refs.qr_png);
   };
 
+  const handleConnectLedger = async () => {
+    const transport = await TransportWebUSB.create();
+    const ledgerInstance = new Xrp(transport);
+
+    const result = await connectToLedger(ledgerInstance);
+    console.log({ result });
+    setAddress(result.address);
+    setPublicKey(result.publicKey);
+    setLedgerConnected(true);
+    setLedgerInstance(ledgerInstance);
+  };
+
   // sign transaction with each wallet's library
   const handleSignGem = async () => {
     const signedTransactionResult = await signTransactionUsingGemWallet(
@@ -98,6 +117,22 @@ export default function App() {
       transaction
     );
     setTransactionBlob(signedTransactionResult);
+  };
+
+  const handleSignLedger = async () => {
+    const betterPreppedTx = encode(transaction);
+
+    // console.log({ txBefore: newTx, txAfter: betterPreppedTx });
+
+    // const preparedTx = xrp.prepare();
+    const res = await ledgerInstance.signTransaction(
+      "44'/144'/0'/0/0",
+      betterPreppedTx,
+      true
+    );
+    console.log({ res });
+
+    // setTransactionBlob(signedTransactionResult);
   };
 
   // submit transaction using xrpl library
@@ -134,7 +169,8 @@ export default function App() {
 
       {!gemWalletConnected &&
         !crossmarkWalletConnected &&
-        !xummWalletConnected && (
+        !xummWalletConnected &&
+        !ledgerConnected && (
           <>
             <label>Enter a domain:</label>
             <input onChange={(e) => setDomain(e.target.value)}></input>
@@ -147,6 +183,7 @@ export default function App() {
                 <button onClick={handleConnectCrossmark}>
                   Crossmark Wallet
                 </button>
+                <button onClick={handleConnectLedger}>Ledger Device</button>
               </>
             )}
           </>
@@ -154,22 +191,44 @@ export default function App() {
 
       {(gemWalletConnected ||
         xummWalletConnected ||
-        crossmarkWalletConnected) && (
+        crossmarkWalletConnected ||
+        ledgerConnected) && (
         <>
-          {(gemWalletConnected || crossmarkWalletConnected) && (
+          {(gemWalletConnected ||
+            crossmarkWalletConnected ||
+            ledgerConnected) && (
             <>
               {address && <p>Your address: {address}</p>}
               {network && <p>Your network: {network}</p>}
               {domain && <p>Your domain: {domain}</p>}
-              <button
-                style={{ margin: "8px" }}
-                onClick={
-                  gemWalletConnected ? handleSignGem : handleSignCrossMark
-                }
-                disabled={transactionBlob === undefined ? false : true}
-              >
-                Sign Transaction
-              </button>
+
+              {gemWalletConnected && (
+                <button
+                  style={{ margin: "8px" }}
+                  onClick={handleSignGem}
+                  disabled={transactionBlob === undefined ? false : true}
+                >
+                  Sign Transaction
+                </button>
+              )}
+              {crossmarkWalletConnected && (
+                <button
+                  style={{ margin: "8px" }}
+                  onClick={handleSignCrossMark}
+                  disabled={transactionBlob === undefined ? false : true}
+                >
+                  Sign Transaction
+                </button>
+              )}
+              {ledgerConnected && (
+                <button
+                  style={{ margin: "8px" }}
+                  onClick={handleSignLedger}
+                  disabled={transactionBlob === undefined ? false : true}
+                >
+                  Sign Transaction
+                </button>
+              )}
             </>
           )}
 
