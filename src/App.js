@@ -2,7 +2,7 @@
 import { useEffect, useState } from "react";
 
 // import client from xrpl library
-import { Client } from "xrpl";
+import { Client, convertStringToHex } from "xrpl";
 
 // import necessary helpers from wallet/blockchain libraries
 import {
@@ -11,10 +11,7 @@ import {
   getNetworkUsingGemWallet,
   signTransactionUsingGemWallet,
 } from "./utils/gemwallet";
-import {
-  connectToXumm,
-  signTransactionUsingXummWallet,
-} from "./utils/xamanwallet";
+import { signTransactionUsingXummWallet } from "./utils/xamanwallet";
 import {
   connectToCrossmark,
   signTransactionUsingCrossmark,
@@ -33,6 +30,7 @@ export default function App() {
   const [resultHash, setResultHash] = useState("");
   const [imagePng, setImagePng] = useState("");
   const [network, setNetwork] = useState("");
+  const [transaction, setTransaction] = useState();
   const [isSubmittingTransaction, setIsSubmittingTransaction] = useState("");
   const [successfullySubmitted, setSuccessfullySubmitted] = useState();
 
@@ -51,52 +49,69 @@ export default function App() {
   JSON-RPC -> https://s.devnet.rippletest.net:51234/
   */
 
-  // handles connecting to wallets using their library
+  // everytime either domain or address changes, we update our transaction object
+  useEffect(() => {
+    setTransaction({
+      TransactionType: "AccountSet",
+      Domain: convertStringToHex(domain),
+      Account: address,
+    });
+  }, [domain, address]);
+
+  // handles connecting to wallets using their library,
+  // saves data to state bounded variable
   const handleConnectGem = async () => {
-    var result = await connectToGem();
-    var addr = await getAddressUsingGemWallet();
-    var gemWalletNetwork = await getNetworkUsingGemWallet();
+    const result = await connectToGem();
+    const addr = await getAddressUsingGemWallet();
+    const gemWalletNetwork = await getNetworkUsingGemWallet();
+
     setNetwork(gemWalletNetwork);
     setAddress(addr);
     setGemWalletConnected(result);
   };
 
   const handleConnectCrossmark = async () => {
-    var result = await connectToCrossmark();
-    setAddress(result);
+    const result = await connectToCrossmark();
+
+    setAddress(result.response.data.address);
+    setNetwork(result.response.data.network.rpc);
     setCrossmarkWalletConnected(!!result);
   };
 
   const handleConnectXumm = async () => {
-    const res2 = await signTransactionUsingXummWallet(domain, address);
+    const result = await signTransactionUsingXummWallet(transaction);
 
-    window.open(res2.next.always);
     setXummWalletConnected(true);
-    setImagePng(res2.refs.qr_png);
+    setImagePng(result.refs.qr_png);
   };
 
+  // sign transaction with each wallet's library
   const handleSignGem = async () => {
-    const signedTransactionResult = await signTransactionUsingGemWallet(domain);
+    const signedTransactionResult = await signTransactionUsingGemWallet(
+      transaction
+    );
     setTransactionBlob(signedTransactionResult);
   };
 
   const handleSignCrossMark = async () => {
-    const signedTransactionResult = await signTransactionUsingCrossmark(domain);
+    const signedTransactionResult = await signTransactionUsingCrossmark(
+      transaction
+    );
     setTransactionBlob(signedTransactionResult);
   };
 
-  // submit transaction using xrpljs library
+  // submit transaction using xrpl library
   const handleSubmitTransaction = async () => {
     setIsSubmittingTransaction(true);
     client
       .connect()
       .then(async () => {
-        client.submitAndWait(transactionBlob).then((res) => {
+        client.submitAndWait(transactionBlob).then((response) => {
           setIsSubmittingTransaction(false);
 
-          if (res.result.hash) {
+          if (response.result.hash) {
             setSuccessfullySubmitted(true);
-            setResultHash(res.result.hash);
+            setResultHash(response.result.hash);
           }
         });
       })
@@ -143,9 +158,9 @@ export default function App() {
         <>
           {(gemWalletConnected || crossmarkWalletConnected) && (
             <>
-              <p>Your address: {address}</p>
-              <p>Your network: {network}</p>
-              <p>Your domain: {domain}</p>
+              {address && <p>Your address: {address}</p>}
+              {network && <p>Your network: {network}</p>}
+              {domain && <p>Your domain: {domain}</p>}
               <button
                 style={{ margin: "8px" }}
                 onClick={
@@ -162,7 +177,7 @@ export default function App() {
             <>
               <p>Finish signing the transaction on your phone 👇🏽</p>
 
-              <img src={imagePng}></img>
+              <img src={imagePng} alt="qr code for phone"></img>
             </>
           )}
 

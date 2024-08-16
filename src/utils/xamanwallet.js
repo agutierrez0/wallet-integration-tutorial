@@ -1,8 +1,9 @@
 // add imports for xumm and xrpl library
 import { Xumm } from "xumm";
-import { convertStringToHex } from "xrpl";
 
-const xumm = new Xumm(process.env.REACT_APP_XUMM_API_KEY);
+const xummApiKey = process.env.REACT_APP_XUMM_API_KEY;
+const xummApiSecret = process.env.REACT_APP_XUMM_API_SECRET;
+const xumm = new Xumm(xummApiKey);
 
 // handle connecting to Xumm wallet
 export const connectToXumm = async () => {
@@ -10,10 +11,10 @@ export const connectToXumm = async () => {
 };
 
 // handle submitting a transaction using Xumm
-export const signTransactionUsingXummWallet = async (domain) => {
+export const signTransactionUsingXummWallet = async (transaction) => {
   const myHeaders = new Headers();
-  myHeaders.append("X-API-Secret", "REMOVED-API-CREDENTIAL");
-  myHeaders.append("X-API-Key", "REMOVED-API-CREDENTIAL");
+  myHeaders.append("X-API-Secret", xummApiSecret);
+  myHeaders.append("X-API-Key", xummApiKey);
   myHeaders.append("Content-Type", "application/json");
 
   // set up payload for xumm
@@ -27,12 +28,10 @@ export const signTransactionUsingXummWallet = async (domain) => {
       },
     },
     custom_meta: {
-      instruction: "Thank you for your purchase of the X10 Widget!",
+      instruction:
+        "Thank you for signing this transaction using the xaman wallet",
     },
-    txjson: {
-      TransactionType: "AccountSet",
-      Domain: convertStringToHex(domain),
-    },
+    txjson: transaction,
   });
 
   const requestOptions = {
