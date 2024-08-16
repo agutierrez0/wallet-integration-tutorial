@@ -17,6 +17,8 @@ import {
   signTransactionUsingCrossmark,
 } from "./utils/crossmark";
 import { connectToLedger } from "./utils/ledger";
+
+// import utils for talking to ledger nano x device
 import Xrp from "@ledgerhq/hw-app-xrp";
 import TransportWebUSB from "@ledgerhq/hw-transport-webusb";
 
@@ -36,6 +38,9 @@ export default function App() {
   const [resultHash, setResultHash] = useState("");
   const [imagePng, setImagePng] = useState("");
   const [network, setNetwork] = useState("");
+  const [txnSignature, setTxnSignature] = useState();
+  const [lastLedgerIndex, setLastLedgerIndex] = useState();
+  const [sequence, setSequence] = useState();
   const [transaction, setTransaction] = useState();
   const [isSubmittingTransaction, setIsSubmittingTransaction] = useState("");
   const [successfullySubmitted, setSuccessfullySubmitted] = useState();
@@ -55,15 +60,24 @@ export default function App() {
   JSON-RPC -> https://s.devnet.rippletest.net:51234/
   */
 
-  // everytime either domain or address changes, we update our transaction object
+  // everytime any params change, we update our transaction object
   useEffect(() => {
-    setTransaction({
+    const transaction = {
       TransactionType: "AccountSet",
       Domain: convertStringToHex(domain),
       Account: address,
       SigningPubKey: publicKey ? publicKey.toUpperCase() : undefined,
-    });
-  }, [domain, address, publicKey]);
+      Fee: "12",
+      TxnSignature: txnSignature,
+      LastLedgerSequence: lastLedgerIndex,
+      Sequence: sequence,
+    };
+    setTransaction(transaction);
+
+    if (txnSignature) {
+      setTransactionBlob(encode(transaction));
+    }
+  }, [domain, address, publicKey, txnSignature, lastLedgerIndex, sequence]);
 
   // handles connecting to wallets using their library,
   // saves data to state bounded variable
@@ -97,11 +111,12 @@ export default function App() {
     const ledgerInstance = new Xrp(transport);
 
     const result = await connectToLedger(ledgerInstance);
-    console.log({ result });
-    setAddress(result.address);
-    setPublicKey(result.publicKey);
-    setLedgerConnected(true);
-    setLedgerInstance(ledgerInstance);
+    if (result) {
+      setAddress(result.address);
+      setPublicKey(result.publicKey);
+      setLedgerConnected(true);
+      setLedgerInstance(ledgerInstance);
+    }
   };
 
   // sign transaction with each wallet's library
@@ -120,19 +135,26 @@ export default function App() {
   };
 
   const handleSignLedger = async () => {
-    const betterPreppedTx = encode(transaction);
+    client.connect().then(async () => {
+      const autofilledTx = await client.autofill(transaction);
 
-    // console.log({ txBefore: newTx, txAfter: betterPreppedTx });
+      const LastLedgerSequence = autofilledTx["LastLedgerSequence"];
+      const Sequence = autofilledTx["Sequence"];
 
-    // const preparedTx = xrp.prepare();
-    const res = await ledgerInstance.signTransaction(
-      "44'/144'/0'/0/0",
-      betterPreppedTx,
-      true
-    );
-    console.log({ res });
+      setLastLedgerIndex(LastLedgerSequence);
+      setSequence(Sequence);
 
-    // setTransactionBlob(signedTransactionResult);
+      const modifiedTx = { ...transaction, LastLedgerSequence, Sequence };
+
+      const encodedTransaction = encode(modifiedTx);
+
+      const response = await ledgerInstance.signTransaction(
+        "44'/144'/0'/0/0",
+        encodedTransaction
+      );
+
+      setTxnSignature(response.toUpperCase());
+    });
   };
 
   // submit transaction using xrpl library
