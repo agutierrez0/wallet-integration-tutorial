@@ -1,5 +1,5 @@
 // standard react imports
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 // import client from xrpl library
 import { Client } from "xrpl";
@@ -27,7 +27,7 @@ export default function App() {
   const [xummWalletConnected, setXummWalletConnected] = useState(false);
   const [crossmarkWalletConnected, setCrossmarkWalletConnected] =
     useState(false);
-  const [transactionBlob, setTransactionBlob] = useState("");
+  const [transactionBlob, setTransactionBlob] = useState();
   const [domain, setDomain] = useState("");
   const [address, setAddress] = useState("");
   const [resultHash, setResultHash] = useState("");
@@ -35,42 +35,6 @@ export default function App() {
   const [network, setNetwork] = useState("");
   const [isSubmittingTransaction, setIsSubmittingTransaction] = useState("");
   const [successfullySubmitted, setSuccessfullySubmitted] = useState();
-
-  // handles connecting to wallets using their library
-  const handleConnectGem = async () => {
-    var result = await connectToGem();
-    var addr = await getAddressUsingGemWallet();
-    var gemWalletNetwork = await getNetworkUsingGemWallet();
-    setNetwork(gemWalletNetwork);
-    console.log({ result });
-    console.log({ addr });
-    setAddress(addr);
-    setGemWalletConnected(result);
-  };
-
-  const handleSignGem = async () => {
-    const signedTransactionResult = await signTransactionUsingGemWallet(domain);
-    setTransactionBlob(signedTransactionResult);
-  };
-
-  const handleConnectCrossmark = async () => {
-    var result = await connectToCrossmark();
-    setAddress(result);
-    setCrossmarkWalletConnected(!!result);
-  };
-
-  const handleSignCrossMark = async () => {
-    const signedTransactionResult = await signTransactionUsingCrossmark(domain);
-    setTransactionBlob(signedTransactionResult);
-  };
-
-  const handleConnectXumm = async () => {
-    const res2 = await signTransactionUsingXummWallet(domain, address);
-
-    window.open(res2.next.always);
-    setXummWalletConnected(true);
-    setImagePng(res2.refs.qr_png);
-  };
 
   // Initializing xrpl client and specifying the network URL
   const [client] = useState(new Client("wss://s.altnet.rippletest.net:51233/"));
@@ -86,6 +50,40 @@ export default function App() {
   WebSocket -> wss://s.devnet.rippletest.net:51233/
   JSON-RPC -> https://s.devnet.rippletest.net:51234/
   */
+
+  // handles connecting to wallets using their library
+  const handleConnectGem = async () => {
+    var result = await connectToGem();
+    var addr = await getAddressUsingGemWallet();
+    var gemWalletNetwork = await getNetworkUsingGemWallet();
+    setNetwork(gemWalletNetwork);
+    setAddress(addr);
+    setGemWalletConnected(result);
+  };
+
+  const handleConnectCrossmark = async () => {
+    var result = await connectToCrossmark();
+    setAddress(result);
+    setCrossmarkWalletConnected(!!result);
+  };
+
+  const handleConnectXumm = async () => {
+    const res2 = await signTransactionUsingXummWallet(domain, address);
+
+    window.open(res2.next.always);
+    setXummWalletConnected(true);
+    setImagePng(res2.refs.qr_png);
+  };
+
+  const handleSignGem = async () => {
+    const signedTransactionResult = await signTransactionUsingGemWallet(domain);
+    setTransactionBlob(signedTransactionResult);
+  };
+
+  const handleSignCrossMark = async () => {
+    const signedTransactionResult = await signTransactionUsingCrossmark(domain);
+    setTransactionBlob(signedTransactionResult);
+  };
 
   // submit transaction using xrpljs library
   const handleSubmitTransaction = async () => {
@@ -117,7 +115,7 @@ export default function App() {
         flexDirection: "column",
       }}
     >
-      <h2>Wallet Integration App</h2>
+      <h2>Sign with Any XRPL wallet</h2>
 
       {!gemWalletConnected &&
         !crossmarkWalletConnected &&
@@ -147,13 +145,15 @@ export default function App() {
             <>
               <p>Your address: {address}</p>
               <p>Your network: {network}</p>
+              <p>Your domain: {domain}</p>
               <button
                 style={{ margin: "8px" }}
                 onClick={
                   gemWalletConnected ? handleSignGem : handleSignCrossMark
                 }
+                disabled={transactionBlob === undefined ? false : true}
               >
-                sign transaction
+                Sign Transaction
               </button>
             </>
           )}
@@ -165,6 +165,7 @@ export default function App() {
               <img src={imagePng}></img>
             </>
           )}
+
           {transactionBlob && (
             <>
               <p>Your signed transaction blob:</p>
@@ -172,7 +173,7 @@ export default function App() {
                 {transactionBlob}
               </p>
               <button
-                disabled={isSubmittingTransaction}
+                disabled={isSubmittingTransaction || successfullySubmitted}
                 onClick={handleSubmitTransaction}
               >
                 Submit transaction on XRPL
