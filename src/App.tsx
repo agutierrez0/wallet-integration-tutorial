@@ -1,8 +1,10 @@
 import { useEffect, useState } from "react";
 import { ADAPTERS } from "./wallets";
-import type { WalletSession } from "./wallets/types";
+import { useAction } from "./hooks/useAction";
 import { NETWORKS } from "./lib/networks";
 import type { NetworkId } from "./lib/networks";
+import { toUserError } from "./lib/errors";
+import { explainResult } from "./lib/resultCodes";
 import {
   TEMPLATES,
   autofillTx,
@@ -14,67 +16,93 @@ import type { TxJson } from "./lib/tx";
 import { NetworkBar } from "./components/NetworkBar";
 import { WalletPicker } from "./components/WalletPicker";
 import { TxEditor } from "./components/TxEditor";
-import { SignedOutput } from "./components/SignedOutput";
+import { SignedOutput, resultCode } from "./components/SignedOutput";
+import { Alert, SkeletonBlock, Steps, stepsAt } from "./components/ui";
 
 interface Signed {
   blob: string;
   filled: TxJson;
 }
 
-const errMsg = (e: unknown) => (e instanceof Error ? e.message : String(e));
+type SignPhase = "autofill" | "wallet";
+
+async function readAvailability(): Promise<Record<string, boolean>> {
+  const entries = await Promise.all(
+    ADAPTERS.map(async (a) => [a.id, await a.isAvailable().catch(() => false)] as const),
+  );
+  return Object.fromEntries(entries);
+}
 
 export default function App() {
   const [networkId, setNetworkId] = useState<NetworkId>("testnet");
   const [mainnetOk, setMainnetOk] = useState(false);
-  const [available, setAvailable] = useState<Record<string, boolean>>({});
   const [adapterId, setAdapterId] = useState("");
-  const [session, setSession] = useState<WalletSession | null>(null);
   const [txText, setTxText] = useState(JSON.stringify(TEMPLATES.AccountSet, null, 2));
-  const [signed, setSigned] = useState<Signed | null>(null);
-  const [submitResult, setSubmitResult] = useState<unknown>(null);
-  const [submittedHash, setSubmittedHash] = useState<string | null>(null);
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState("");
-  const [notice, setNotice] = useState("");
+  const [signPhase, setSignPhase] = useState<SignPhase>("autofill");
+  // Extensions inject late, so we re-check shortly after load.
+  const [lateAvailable, setLateAvailable] = useState<Record<string, boolean> | null>(null);
 
   const network = NETWORKS[networkId];
   const adapter = ADAPTERS.find((a) => a.id === adapterId);
 
+  const checkAvail = useAction(readAvailability);
+  const available = lateAvailable ?? checkAvail.data ?? null;
+
   useEffect(() => {
-    // Extensions inject late, so re-check shortly after load.
-    const check = async () => {
-      const entries = await Promise.all(
-        ADAPTERS.map(async (a) => [a.id, await a.isAvailable().catch(() => false)] as const),
-      );
-      setAvailable(Object.fromEntries(entries));
-    };
-    check();
-    const t = setTimeout(check, 1000);
+    void checkAvail.run();
+    const t = setTimeout(() => {
+      readAvailability().then(setLateAvailable, () => {});
+    }, 1000);
     return () => clearTimeout(t);
   }, []);
 
-  const clearOutput = () => {
-    setSigned(null);
-    setSubmitResult(null);
-    setSubmittedHash(null);
-  };
+  // The session and signed output are derived from action state, so cancelling
+  // (reset) an action also discards a late result from the wallet.
+  const connect = useAction(async () => {
+    if (!adapter) throw new Error("Pick a wallet first.");
+    return adapter.connect();
+  });
+  const session = connect.status === "success" ? (connect.data ?? null) : null;
 
-  const run = async (fn: () => Promise<void>) => {
-    setBusy(true);
-    setError("");
-    setNotice("");
-    try {
-      await fn();
-    } catch (e) {
-      setError(errMsg(e));
-    } finally {
-      setBusy(false);
-    }
+  const disconnect = useAction(async () => {
+    await adapter?.disconnect();
+  });
+
+  const fund = useAction(async () => {
+    if (!session) throw new Error("Connect a wallet first.");
+    return fundFromFaucet(network, session.address);
+  });
+
+  const sign = useAction(async (): Promise<Signed> => {
+    if (!adapter || !session) throw new Error("Connect a wallet first.");
+    setSignPhase("autofill");
+    const tx = parseTx(txText, session.address);
+    const filled = await autofillTx(network, tx);
+    setSignPhase("wallet");
+    const blob = await adapter.signTransaction(filled);
+    return { blob, filled };
+  });
+  const signed = sign.status === "success" ? (sign.data ?? null) : null;
+
+  const submitX = useAction(async () => {
+    if (!signed) throw new Error("Sign a transaction first.");
+    return submitWithXrplJs(network, signed.blob);
+  });
+  const submitW = useAction(async () => {
+    if (!signed || !adapter?.submitTransaction) throw new Error("Sign a transaction first.");
+    return adapter.submitTransaction(signed.filled);
+  });
+
+  const clearOutput = () => {
+    sign.reset();
+    submitX.reset();
+    submitW.reset();
   };
 
   const changeNetwork = (id: NetworkId) => {
     setNetworkId(id);
     clearOutput();
+    fund.reset();
   };
 
   const changeMainnetOk = (ok: boolean) => {
@@ -85,60 +113,67 @@ export default function App() {
   const selectAdapter = (id: string) => {
     if (id === adapterId) return;
     setAdapterId(id);
-    setSession(null);
+    connect.reset();
+    fund.reset();
     clearOutput();
   };
 
-  const connect = () =>
-    run(async () => {
-      if (!adapter) return;
-      setSession(await adapter.connect());
-      clearOutput();
-    });
+  const disconnectNow = async () => {
+    await disconnect.run();
+    connect.reset();
+    fund.reset();
+    clearOutput();
+  };
 
-  const disconnect = () =>
-    run(async () => {
-      await adapter?.disconnect();
-      setSession(null);
-      clearOutput();
-    });
-
-  const fund = () =>
-    run(async () => {
-      if (!session) return;
-      await fundFromFaucet(network, session.address);
-      setNotice("Faucet request sent. The balance can take a few seconds to appear.");
-    });
+  const recheck = () => {
+    setLateAvailable(null);
+    void checkAvail.run();
+  };
 
   const changeTx = (v: string) => {
     setTxText(v);
     clearOutput();
   };
 
-  const sign = () =>
-    run(async () => {
-      if (!adapter || !session) return;
-      clearOutput();
-      const tx = parseTx(txText, session.address);
-      const filled = await autofillTx(network, tx);
-      const blob = await adapter.signTransaction(filled);
-      setSigned({ blob, filled });
-    });
+  const signing = sign.status === "loading";
+  const busy =
+    signing ||
+    connect.status === "loading" ||
+    fund.status === "loading" ||
+    disconnect.status === "loading" ||
+    submitX.status === "loading" ||
+    submitW.status === "loading";
 
-  const submitXrplJs = () =>
-    run(async () => {
-      if (!signed) return;
-      setSubmittedHash(null);
-      setSubmitResult(await submitWithXrplJs(network, signed.blob));
-    });
+  const signError = sign.status === "error" ? toUserError(sign.error) : null;
 
-  const submitWallet = () =>
-    run(async () => {
-      if (!signed || !adapter?.submitTransaction) return;
-      const hash = await adapter.submitTransaction(signed.filled);
-      setSubmittedHash(hash);
-      setSubmitResult({ hash, note: "Submitted through the wallet." });
-    });
+  const code = resultCode(submitX.data);
+  const steps = (() => {
+    if (submitW.status === "success") return stepsAt(4);
+    if (submitX.status === "success") {
+      const category = code ? explainResult(code).category : "success";
+      if (category === "success") return stepsAt(4);
+      return stepsAt(3, category !== "retry");
+    }
+    if (submitX.status === "error" || submitW.status === "error") return stepsAt(3, true);
+    if (signed) return stepsAt(3);
+    if (signError) return stepsAt(signError.kind === "input" ? 1 : 2, true);
+    if (signing) return stepsAt(2);
+    if (session) return stepsAt(1);
+    return stepsAt(0, connect.status === "error");
+  })();
+
+  const announce =
+    submitX.status === "success"
+      ? `Transaction submitted${code ? `: ${code}` : ""}`
+      : submitW.status === "success"
+        ? "Transaction submitted through the wallet"
+        : signed
+          ? "Transaction signed"
+          : session
+            ? "Wallet connected"
+            : "";
+
+  const walletName = adapter?.name ?? "wallet";
 
   return (
     <main>
@@ -150,10 +185,16 @@ export default function App() {
         </p>
       </header>
 
+      <Steps steps={steps} />
+      <div className="ui-sr-only" aria-live="polite" role="status">
+        {announce}
+      </div>
+
       <NetworkBar
         networkId={networkId}
         mainnetOk={mainnetOk}
         networkHint={session?.networkHint}
+        disabled={busy}
         onNetwork={changeNetwork}
         onMainnetOk={changeMainnetOk}
       />
@@ -162,36 +203,64 @@ export default function App() {
         available={available}
         selectedId={adapterId}
         session={session}
+        connect={connect}
+        fund={fund}
         canFund={!!network.faucet}
-        busy={busy}
+        locked={busy && connect.status !== "loading"}
+        disconnecting={disconnect.status === "loading"}
         onSelect={selectAdapter}
-        onConnect={connect}
-        onDisconnect={disconnect}
-        onFund={fund}
+        onConnect={() => void connect.run()}
+        onCancelConnect={connect.reset}
+        onDisconnect={() => void disconnectNow()}
+        onFund={() => void fund.run()}
+        onRecheck={recheck}
       />
       <TxEditor
         value={txText}
-        disabled={busy || !session}
-        signLabel={session ? `Autofill and sign with ${adapter?.name}` : "Connect a wallet to sign"}
+        signing={signing}
+        signLabel={adapter ? `Autofill and sign with ${adapter.name}` : "Sign"}
+        signingLabel={
+          signPhase === "autofill"
+            ? `Autofilling from ${network.label}…`
+            : `Waiting for approval in ${walletName}…`
+        }
+        disabledReason={
+          session ? undefined : "Connect a wallet in step 2 to sign. Signing is disabled until then."
+        }
         onChange={changeTx}
-        onSign={sign}
+        onSign={() => void sign.run()}
+        onCancel={sign.reset}
       />
 
-      {error && <p className="bad banner">{error}</p>}
-      {notice && <p className="ok banner">{notice}</p>}
-      {busy && <p className="muted">Working…</p>}
+      {signError && (
+        <Alert error={signError} onRetry={() => void sign.run()} onDismiss={sign.reset} />
+      )}
+
+      {signing && (
+        <section className="card">
+          <h2>4. Signed output</h2>
+          <SkeletonBlock
+            lines={6}
+            label={
+              signPhase === "autofill"
+                ? "Autofilling transaction…"
+                : `Waiting for approval in ${walletName}…`
+            }
+          />
+        </section>
+      )}
 
       {signed && (
         <SignedOutput
           network={network}
+          walletName={walletName}
           blob={signed.blob}
           filled={signed.filled}
           canWalletSubmit={!!adapter?.capabilities.submit}
-          busy={busy}
-          submitResult={submitResult}
-          submittedHash={submittedHash}
-          onSubmitXrplJs={submitXrplJs}
-          onSubmitWallet={submitWallet}
+          submitX={submitX}
+          submitW={submitW}
+          onSubmitXrplJs={() => void submitX.run()}
+          onSubmitWallet={() => void submitW.run()}
         />
       )}
     </main>
