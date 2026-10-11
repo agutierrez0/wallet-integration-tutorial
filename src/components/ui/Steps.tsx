@@ -44,7 +44,6 @@ export function Steps({ steps }: StepsProps) {
 export function stepsAt(current: number, failed = false): Step[] {
   return DEFAULT_STEPS.map((label, i) => ({
     label,
-    state:
-      i < current ? "done" : i === current ? (failed ? "error" : "current") : "todo",
+    state: i < current ? "done" : i === current ? (failed ? "error" : "current") : "todo",
   }));
 }

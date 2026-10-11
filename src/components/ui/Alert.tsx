@@ -28,15 +28,7 @@ const ICON: Record<AlertVariant, string> = {
   success: "✓",
 };
 
-export function Alert({
-  variant,
-  title,
-  message,
-  hint,
-  error,
-  onRetry,
-  onDismiss,
-}: AlertProps) {
+export function Alert({ variant, title, message, hint, error, onRetry, onDismiss }: AlertProps) {
   const v: AlertVariant = variant ?? (error ? "error" : "info");
   const t = title ?? error?.title;
   const m = message ?? error?.message;

@@ -1,5 +1,11 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { formatCountdown, isModalOpen, modalClosed, modalOpened, remainingSeconds } from "./QrPrompt";
+import {
+  formatCountdown,
+  isModalOpen,
+  modalClosed,
+  modalOpened,
+  remainingSeconds,
+} from "./QrPrompt";
 
 describe("remainingSeconds", () => {
   const now = Date.parse("2030-01-01T00:00:00Z");

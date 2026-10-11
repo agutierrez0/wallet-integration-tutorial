@@ -60,7 +60,10 @@ export async function signWithDevice(
   const { address, publicKey: rawKey } = await device.getAddress(path);
   const publicKey = normalizePublicKey(rawKey);
   if (deriveAddress(publicKey) !== address) {
-    throw new WalletError("UNKNOWN", "Ledger returned an address that does not match its public key.");
+    throw new WalletError(
+      "UNKNOWN",
+      "Ledger returned an address that does not match its public key.",
+    );
   }
   if (tx.Account !== undefined && tx.Account !== address) {
     throw new WalletError(
@@ -81,7 +84,10 @@ export async function signWithDevice(
     // treated as invalid below
   }
   if (!valid) {
-    throw new WalletError("UNKNOWN", "Ledger returned a signature that does not verify. Nothing was signed.");
+    throw new WalletError(
+      "UNKNOWN",
+      "Ledger returned a signature that does not verify. Nothing was signed.",
+    );
   }
   return blob;
 }
@@ -105,7 +111,9 @@ export function mapLedgerError(err: unknown, action = "request"): WalletError {
     return new WalletError("REJECTED", "Rejected on your Ledger.", { cause: err });
   }
   if (status !== undefined && STATUS_APP_NOT_OPEN.includes(status)) {
-    return new WalletError("NOT_INSTALLED", "Open the XRP app on your Ledger, then try again.", { cause: err });
+    return new WalletError("NOT_INSTALLED", "Open the XRP app on your Ledger, then try again.", {
+      cause: err,
+    });
   }
   if ((status !== undefined && STATUS_LOCKED.includes(status)) || name === "LockedDeviceError") {
     return new WalletError("LOCKED", "Unlock your Ledger, then try again.", { cause: err });
@@ -114,20 +122,32 @@ export function mapLedgerError(err: unknown, action = "request"): WalletError {
     return new WalletError("CANCELLED", "Ledger selection was cancelled.", { cause: err });
   }
   if (name === "NotAllowedError" || name === "NotFoundError") {
-    return new WalletError("NOT_INSTALLED", "No Ledger selected. Plug it in, unlock it and choose it in the browser prompt.", {
-      cause: err,
-    });
+    return new WalletError(
+      "NOT_INSTALLED",
+      "No Ledger selected. Plug it in, unlock it and choose it in the browser prompt.",
+      {
+        cause: err,
+      },
+    );
   }
   if (name === "DisconnectedDevice" || name === "DisconnectedDeviceDuringOperation") {
-    return new WalletError("NOT_INSTALLED", "Ledger disconnected. Reconnect it and try again.", { cause: err });
-  }
-  if (name === "TransportInterfaceNotAvailable" || name === "InvalidStateError") {
-    return new WalletError("UNKNOWN", "Ledger is busy. Close Ledger Live or other tabs using it, then try again.", {
+    return new WalletError("NOT_INSTALLED", "Ledger disconnected. Reconnect it and try again.", {
       cause: err,
     });
   }
+  if (name === "TransportInterfaceNotAvailable" || name === "InvalidStateError") {
+    return new WalletError(
+      "UNKNOWN",
+      "Ledger is busy. Close Ledger Live or other tabs using it, then try again.",
+      {
+        cause: err,
+      },
+    );
+  }
   if (name === "TimeoutError" || name === "TransportRaceCondition") {
-    return new WalletError("EXPIRED", `Ledger ${action} timed out. ${STOP_ON_DEVICE}`, { cause: err });
+    return new WalletError("EXPIRED", `Ledger ${action} timed out. ${STOP_ON_DEVICE}`, {
+      cause: err,
+    });
   }
   return new WalletError("UNKNOWN", `Ledger: ${action} failed`, { cause: err });
 }
@@ -135,10 +155,14 @@ export function mapLedgerError(err: unknown, action = "request"): WalletError {
 // runPrompt can only stop waiting; make that explicit for a device that keeps its prompt open.
 function deviceStopped(err: unknown): never {
   if (err instanceof WalletError && err.code === "CANCELLED") {
-    throw new WalletError("CANCELLED", `Stopped waiting for Ledger. ${STOP_ON_DEVICE}`, { cause: err });
+    throw new WalletError("CANCELLED", `Stopped waiting for Ledger. ${STOP_ON_DEVICE}`, {
+      cause: err,
+    });
   }
   if (err instanceof WalletError && err.code === "EXPIRED") {
-    throw new WalletError("EXPIRED", `Stopped waiting for Ledger. ${STOP_ON_DEVICE}`, { cause: err });
+    throw new WalletError("EXPIRED", `Stopped waiting for Ledger. ${STOP_ON_DEVICE}`, {
+      cause: err,
+    });
   }
   throw err;
 }

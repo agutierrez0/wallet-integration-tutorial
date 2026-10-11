@@ -47,7 +47,13 @@ const FIXTURES: Record<string, FormValues> = {
   AccountSet: { Domain: "Example.COM", SetFlag: "8", TransferRate: "1005000000", TickSize: "5" },
   SetRegularKey: { RegularKey: DEST },
   TicketCreate: { TicketCount: "5" },
-  TrustSet: { currency: "USD", issuer: ISSUER, limit: "1000", NoRipple: "set", QualityIn: "1000000000" },
+  TrustSet: {
+    currency: "USD",
+    issuer: ISSUER,
+    limit: "1000",
+    NoRipple: "set",
+    QualityIn: "1000000000",
+  },
   OfferCreate: {
     TakerGets: { mode: "xrp", value: "10" },
     TakerPays: { mode: "issued", value: "25.5", currency: "USD", issuer: ISSUER },
@@ -56,7 +62,13 @@ const FIXTURES: Record<string, FormValues> = {
     Sell: true,
   },
   OfferCancel: { OfferSequence: "7" },
-  NFTokenMint: { NFTokenTaxon: "0", URI: "ipfs://bafy/metadata.json", TransferFee: "5000", Transferable: true, Burnable: true },
+  NFTokenMint: {
+    NFTokenTaxon: "0",
+    URI: "ipfs://bafy/metadata.json",
+    TransferFee: "5000",
+    Transferable: true,
+    Burnable: true,
+  },
   NFTokenBurn: { NFTokenID: NFT_ID, Owner: DEST },
   EscrowCreate: {
     Destination: DEST,
@@ -84,7 +96,11 @@ const FIXTURES: Record<string, FormValues> = {
     Destination: DEST,
     Expiration: "2030-01-01T00:00:00",
   },
-  NFTokenAcceptOffer: { NFTokenSellOffer: OFFER_A, NFTokenBuyOffer: OFFER_B, NFTokenBrokerFee: { mode: "xrp", value: "1" } },
+  NFTokenAcceptOffer: {
+    NFTokenSellOffer: OFFER_A,
+    NFTokenBuyOffer: OFFER_B,
+    NFTokenBrokerFee: { mode: "xrp", value: "1" },
+  },
   NFTokenCancelOffer: { NFTokenOffers: `${OFFER_A}\n${OFFER_B}` },
 };
 
@@ -181,7 +197,8 @@ describe.each(Object.keys(FIXTURES))("%s", (type) => {
   it("flags every required field when empty", () => {
     const errors = validateValues(s, defaultValues(s));
     const d = defaultValues(s);
-    for (const f of s.fields.filter((x) => x.required && isFieldActive(x, d))) expect(errors[f.name]).toBeTruthy();
+    for (const f of s.fields.filter((x) => x.required && isFieldActive(x, d)))
+      expect(errors[f.name]).toBeTruthy();
   });
 
   it("ignores autofill fields when parsing", () => {
@@ -266,11 +283,17 @@ describe("buildTx details", () => {
 
   it("encodes a memo as text/plain hex", () => {
     const tx = buildTx(schema("Payment"), filled("Payment", FIXTURES.Payment), ACCOUNT);
-    expect(tx.Memos).toEqual([{ Memo: { MemoType: "746578742F706C61696E", MemoData: "7468616E6B73" } }]);
+    expect(tx.Memos).toEqual([
+      { Memo: { MemoType: "746578742F706C61696E", MemoData: "7468616E6B73" } },
+    ]);
   });
 
   it("lowercases and hex-encodes the AccountSet domain", () => {
-    const tx = buildTx(schema("AccountSet"), filled("AccountSet", { Domain: "Example.COM" }), ACCOUNT);
+    const tx = buildTx(
+      schema("AccountSet"),
+      filled("AccountSet", { Domain: "Example.COM" }),
+      ACCOUNT,
+    );
     expect(tx.Domain).toBe("6578616D706C652E636F6D");
   });
 
@@ -282,7 +305,14 @@ describe("buildTx details", () => {
   it("builds TrustSet LimitAmount and ORs flags", () => {
     const tx = buildTx(
       schema("TrustSet"),
-      filled("TrustSet", { currency: "USD", issuer: ISSUER, limit: "500", NoRipple: "set", Freeze: "set", SetAuth: true }),
+      filled("TrustSet", {
+        currency: "USD",
+        issuer: ISSUER,
+        limit: "500",
+        NoRipple: "set",
+        Freeze: "set",
+        SetAuth: true,
+      }),
       ACCOUNT,
     );
     expect(tx.LimitAmount).toEqual({ currency: "USD", issuer: ISSUER, value: "500" });
@@ -313,8 +343,16 @@ describe("buildTx details", () => {
   });
 
   it("reads times without a timezone as UTC", () => {
-    const a = buildTx(schema("CheckCreate"), filled("CheckCreate", { ...FIXTURES.CheckCreate, Expiration: "2030-01-01T00:00" }), ACCOUNT);
-    const b = buildTx(schema("CheckCreate"), filled("CheckCreate", { ...FIXTURES.CheckCreate, Expiration: "2030-01-01" }), ACCOUNT);
+    const a = buildTx(
+      schema("CheckCreate"),
+      filled("CheckCreate", { ...FIXTURES.CheckCreate, Expiration: "2030-01-01T00:00" }),
+      ACCOUNT,
+    );
+    const b = buildTx(
+      schema("CheckCreate"),
+      filled("CheckCreate", { ...FIXTURES.CheckCreate, Expiration: "2030-01-01" }),
+      ACCOUNT,
+    );
     expect(a.Expiration).toBe(946771200);
     expect(b.Expiration).toBe(946771200);
   });
@@ -353,12 +391,17 @@ describe("validateValues", () => {
   });
 
   it("rejects invalid addresses", () => {
-    expect(pay({ Destination: "rNotAnAddress", Amount: { mode: "xrp", value: "1" } }).Destination).toMatch(/valid XRPL address/);
-    expect(pay({ Destination: DEST, Amount: { mode: "xrp", value: "1" } }).Destination).toBeUndefined();
+    expect(
+      pay({ Destination: "rNotAnAddress", Amount: { mode: "xrp", value: "1" } }).Destination,
+    ).toMatch(/valid XRPL address/);
+    expect(
+      pay({ Destination: DEST, Amount: { mode: "xrp", value: "1" } }).Destination,
+    ).toBeUndefined();
   });
 
   it("limits XRP to 6 decimal places and positive values", () => {
-    const amt = (value: string) => pay({ Destination: DEST, Amount: { mode: "xrp", value } }).Amount;
+    const amt = (value: string) =>
+      pay({ Destination: DEST, Amount: { mode: "xrp", value } }).Amount;
     expect(amt("1.1234567")).toMatch(/6 decimal/);
     expect(amt("0")).toMatch(/greater than 0/);
     expect(amt("-1")).toMatch(/number/);
@@ -370,7 +413,10 @@ describe("validateValues", () => {
 
   it("validates issued currency amounts", () => {
     const amt = (a: object) =>
-      pay({ Destination: DEST, Amount: { mode: "issued", value: "1", currency: "USD", issuer: ISSUER, ...a } }).Amount;
+      pay({
+        Destination: DEST,
+        Amount: { mode: "issued", value: "1", currency: "USD", issuer: ISSUER, ...a },
+      }).Amount;
     expect(amt({})).toBeUndefined();
     expect(amt({ currency: "" })).toMatch(/Currency is required/);
     expect(amt({ currency: "XRP" })).toMatch(/not an issued currency/);
@@ -398,7 +444,9 @@ describe("validateValues", () => {
     expect(pay({ ...base, DestinationTag: "4294967296" }).DestinationTag).toMatch(/between/);
     expect(pay({ ...base, DestinationTag: "-1" }).DestinationTag).toMatch(/whole number/);
     expect(pay({ ...base, DestinationTag: "1.5" }).DestinationTag).toMatch(/whole number/);
-    const tickets = (n: string) => validateValues(schema("TicketCreate"), filled("TicketCreate", { TicketCount: n })).TicketCount;
+    const tickets = (n: string) =>
+      validateValues(schema("TicketCreate"), filled("TicketCreate", { TicketCount: n }))
+        .TicketCount;
     expect(tickets("0")).toMatch(/between 1 and 250/);
     expect(tickets("250")).toBeUndefined();
     expect(tickets("251")).toMatch(/between 1 and 250/);
@@ -424,7 +472,10 @@ describe("validateValues", () => {
   });
 
   it("rejects turning the same AccountSet flag on and off", () => {
-    const e = validateValues(schema("AccountSet"), filled("AccountSet", { SetFlag: "8", ClearFlag: "8" }));
+    const e = validateValues(
+      schema("AccountSet"),
+      filled("AccountSet", { SetFlag: "8", ClearFlag: "8" }),
+    );
     expect(e.ClearFlag).toMatch(/on and off/);
   });
 
@@ -441,7 +492,11 @@ describe("validateValues", () => {
   });
 
   it("checks TrustSet currency, issuer and limit", () => {
-    const t = (o: FormValues) => validateValues(schema("TrustSet"), filled("TrustSet", { currency: "USD", issuer: ISSUER, limit: "1", ...o }));
+    const t = (o: FormValues) =>
+      validateValues(
+        schema("TrustSet"),
+        filled("TrustSet", { currency: "USD", issuer: ISSUER, limit: "1", ...o }),
+      );
     expect(t({})).toEqual({});
     expect(t({ currency: "XRP" }).currency).toMatch(/not an issued currency/);
     expect(t({ currency: "" }).currency).toBe("Currency is required");
@@ -459,46 +514,68 @@ describe("validateValues", () => {
   });
 
   it("requires Transferable for an NFT transfer fee", () => {
-    const e = validateValues(schema("NFTokenMint"), filled("NFTokenMint", { NFTokenTaxon: "0", TransferFee: "100" }));
+    const e = validateValues(
+      schema("NFTokenMint"),
+      filled("NFTokenMint", { NFTokenTaxon: "0", TransferFee: "100" }),
+    );
     expect(e.TransferFee).toMatch(/Transferable/);
-    const ok = validateValues(schema("NFTokenMint"), filled("NFTokenMint", { NFTokenTaxon: "0", TransferFee: "100", Transferable: true }));
+    const ok = validateValues(
+      schema("NFTokenMint"),
+      filled("NFTokenMint", { NFTokenTaxon: "0", TransferFee: "100", Transferable: true }),
+    );
     expect(ok.TransferFee).toBeUndefined();
-    const high = validateValues(schema("NFTokenMint"), filled("NFTokenMint", { NFTokenTaxon: "0", TransferFee: "50001", Transferable: true }));
+    const high = validateValues(
+      schema("NFTokenMint"),
+      filled("NFTokenMint", { NFTokenTaxon: "0", TransferFee: "50001", Transferable: true }),
+    );
     expect(high.TransferFee).toMatch(/between/);
   });
 
   it("limits the NFT URI to 256 bytes", () => {
-    const e = (uri: string) => validateValues(schema("NFTokenMint"), filled("NFTokenMint", { NFTokenTaxon: "0", URI: uri })).URI;
+    const e = (uri: string) =>
+      validateValues(schema("NFTokenMint"), filled("NFTokenMint", { NFTokenTaxon: "0", URI: uri }))
+        .URI;
     expect(e("a".repeat(256))).toBeUndefined();
     expect(e("a".repeat(257))).toMatch(/256 bytes/);
   });
 
   it("validates escrow create timing rules", () => {
     const e = (o: FormValues) =>
-      validateValues(schema("EscrowCreate"), filled("EscrowCreate", { Destination: DEST, Amount: "1", ...o }));
+      validateValues(
+        schema("EscrowCreate"),
+        filled("EscrowCreate", { Destination: DEST, Amount: "1", ...o }),
+      );
     expect(e({}).FinishAfter).toMatch(/release time or a condition/);
     expect(e({ Condition: CONDITION }).CancelAfter).toMatch(/needs a cancel time/);
     expect(e({ Condition: CONDITION, CancelAfter: "2030-01-01" })).toEqual({});
-    expect(e({ FinishAfter: "2030-06-01", CancelAfter: "2030-01-01" }).CancelAfter).toMatch(/after the release/);
+    expect(e({ FinishAfter: "2030-06-01", CancelAfter: "2030-01-01" }).CancelAfter).toMatch(
+      /after the release/,
+    );
     expect(e({ FinishAfter: "not a date" }).FinishAfter).toMatch(/UTC date and time/);
     expect(e({ FinishAfter: "1999-01-01" }).FinishAfter).toMatch(/UTC date and time/);
   });
 
   it("requires condition and fulfillment together on EscrowFinish", () => {
-    const e = (o: FormValues) => validateValues(schema("EscrowFinish"), filled("EscrowFinish", { Owner: DEST, OfferSequence: "1", ...o }));
+    const e = (o: FormValues) =>
+      validateValues(
+        schema("EscrowFinish"),
+        filled("EscrowFinish", { Owner: DEST, OfferSequence: "1", ...o }),
+      );
     expect(e({})).toEqual({});
     expect(e({ Condition: CONDITION }).Fulfillment).toMatch(/fulfillment/);
     expect(e({ Fulfillment: "A0028000" }).Condition).toMatch(/condition/);
   });
 
   it("requires a valid optional RegularKey address only when provided", () => {
-    const r = (v: string) => validateValues(schema("SetRegularKey"), filled("SetRegularKey", { RegularKey: v }));
+    const r = (v: string) =>
+      validateValues(schema("SetRegularKey"), filled("SetRegularKey", { RegularKey: v }));
     expect(r("")).toEqual({});
     expect(r("bad").RegularKey).toMatch(/valid XRPL address/);
   });
 
   it("requires an NFT ID of exactly 64 hex characters", () => {
-    const e = (id: string) => validateValues(schema("NFTokenBurn"), filled("NFTokenBurn", { NFTokenID: id })).NFTokenID;
+    const e = (id: string) =>
+      validateValues(schema("NFTokenBurn"), filled("NFTokenBurn", { NFTokenID: id })).NFTokenID;
     expect(e(NFT_ID)).toBeUndefined();
     expect(e("ABCD")).toMatch(/exactly 64/);
     expect(e("")).toBe("NFT ID is required");
@@ -512,13 +589,29 @@ describe("validateValues", () => {
       category: "payments",
       icon: "?",
       fields: [
-        { name: "mode", label: "Mode", kind: "select", options: [{ value: "a", label: "A" }, { value: "b", label: "B" }] },
-        { name: "extra", label: "Extra", kind: "text", required: true, showWhen: { field: "mode", equals: "b" } },
+        {
+          name: "mode",
+          label: "Mode",
+          kind: "select",
+          options: [
+            { value: "a", label: "A" },
+            { value: "b", label: "B" },
+          ],
+        },
+        {
+          name: "extra",
+          label: "Extra",
+          kind: "text",
+          required: true,
+          showWhen: { field: "mode", equals: "b" },
+        },
       ],
       build: () => ({ TransactionType: "Custom" }),
     };
     expect(validateValues(custom, { mode: "a", extra: "" })).toEqual({});
-    expect(validateValues(custom, { mode: "b", extra: "" })).toEqual({ extra: "Extra is required" });
+    expect(validateValues(custom, { mode: "b", extra: "" })).toEqual({
+      extra: "Extra is required",
+    });
     expect(validateValues(custom, { mode: "b", extra: "ok" })).toEqual({});
   });
 });
@@ -530,15 +623,24 @@ describe("valuesFromTx", () => {
   });
 
   it("returns null when the tx has fields the form cannot show", () => {
-    expect(valuesFromTx({ TransactionType: "Payment", Destination: DEST, Amount: "1", Paths: [] })).toBeNull();
+    expect(
+      valuesFromTx({ TransactionType: "Payment", Destination: DEST, Amount: "1", Paths: [] }),
+    ).toBeNull();
   });
 
   it("returns null for unrepresentable flags", () => {
-    expect(valuesFromTx({ TransactionType: "Payment", Destination: DEST, Amount: "1", Flags: 131072 })).toBeNull();
+    expect(
+      valuesFromTx({ TransactionType: "Payment", Destination: DEST, Amount: "1", Flags: 131072 }),
+    ).toBeNull();
   });
 
   it("accepts tfFullyCanonicalSig", () => {
-    const r = valuesFromTx({ TransactionType: "Payment", Destination: DEST, Amount: "1", Flags: 2147483648 });
+    const r = valuesFromTx({
+      TransactionType: "Payment",
+      Destination: DEST,
+      Amount: "1",
+      Flags: 2147483648,
+    });
     expect(r?.values.Amount).toEqual({ mode: "xrp", value: "0.000001" });
   });
 
@@ -552,7 +654,11 @@ describe("valuesFromTx", () => {
       }),
     ).toBeNull();
     expect(
-      valuesFromTx({ TransactionType: "Payment", Destination: DEST, Amount: { mpt_issuance_id: "00", value: "1" } }),
+      valuesFromTx({
+        TransactionType: "Payment",
+        Destination: DEST,
+        Amount: { mpt_issuance_id: "00", value: "1" },
+      }),
     ).toBeNull();
   });
 
@@ -572,7 +678,12 @@ describe("valuesFromTx", () => {
   });
 
   it("restores the ISO time and the domain text", () => {
-    const check = valuesFromTx({ TransactionType: "CheckCreate", Destination: DEST, SendMax: "5000000", Expiration: 946771200 });
+    const check = valuesFromTx({
+      TransactionType: "CheckCreate",
+      Destination: DEST,
+      SendMax: "5000000",
+      Expiration: 946771200,
+    });
     expect(check?.values.Expiration).toBe("2030-01-01T00:00:00");
     const set = valuesFromTx({ TransactionType: "AccountSet", Domain: "6578616D706C652E636F6D" });
     expect(set?.values.Domain).toBe("example.com");
@@ -594,8 +705,13 @@ describe("valuesFromTx", () => {
 
 describe("datetime fields", () => {
   const check = (expiration: string) =>
-    filled("CheckCreate", { Destination: DEST, SendMax: { mode: "xrp", value: "1" }, Expiration: expiration });
-  const err = (expiration: string) => validateValues(schema("CheckCreate"), check(expiration)).Expiration;
+    filled("CheckCreate", {
+      Destination: DEST,
+      SendMax: { mode: "xrp", value: "1" },
+      Expiration: expiration,
+    });
+  const err = (expiration: string) =>
+    validateValues(schema("CheckCreate"), check(expiration)).Expiration;
 
   it("uses the datetime kind for every date field", () => {
     for (const [type, field] of [
@@ -605,18 +721,33 @@ describe("datetime fields", () => {
       ["CheckCreate", "Expiration"],
       ["NFTokenCreateOffer", "Expiration"],
     ] as const) {
-      expect(schema(type).fields.find((f) => f.name === field)?.kind, `${type}.${field}`).toBe("datetime");
+      expect(schema(type).fields.find((f) => f.name === field)?.kind, `${type}.${field}`).toBe(
+        "datetime",
+      );
     }
   });
 
   it("accepts the datetime-local value shape, with or without seconds or Z", () => {
-    for (const v of ["2030-01-01T12:00", "2030-01-01T12:00:30", "2030-01-01T12:00:30Z", "2030-01-01"]) {
+    for (const v of [
+      "2030-01-01T12:00",
+      "2030-01-01T12:00:30",
+      "2030-01-01T12:00:30Z",
+      "2030-01-01",
+    ]) {
       expect(err(v), v).toBeUndefined();
     }
   });
 
   it("rejects locale-style, overflowing and out-of-range dates", () => {
-    for (const v of ["March 3 2030", "3/3/2030", "2030-02-31", "2030-13-01", "2030-01-01T25:00", "1999-12-31", "2000-01-01"]) {
+    for (const v of [
+      "March 3 2030",
+      "3/3/2030",
+      "2030-02-31",
+      "2030-13-01",
+      "2030-01-01T25:00",
+      "1999-12-31",
+      "2000-01-01",
+    ]) {
       expect(err(v), v).toMatch(/UTC date and time/);
     }
   });
@@ -634,8 +765,22 @@ describe("datetime fields", () => {
   });
 
   it("opens a tx with an out-of-range Expiration as raw JSON", () => {
-    expect(valuesFromTx({ TransactionType: "CheckCreate", Destination: DEST, SendMax: "1", Expiration: 0 })).toBeNull();
-    expect(valuesFromTx({ TransactionType: "CheckCreate", Destination: DEST, SendMax: "1", Expiration: 4294967296 })).toBeNull();
+    expect(
+      valuesFromTx({
+        TransactionType: "CheckCreate",
+        Destination: DEST,
+        SendMax: "1",
+        Expiration: 0,
+      }),
+    ).toBeNull();
+    expect(
+      valuesFromTx({
+        TransactionType: "CheckCreate",
+        Destination: DEST,
+        SendMax: "1",
+        Expiration: 4294967296,
+      }),
+    ).toBeNull();
   });
 });
 
@@ -643,7 +788,11 @@ describe("AccountSet improvements", () => {
   const s = schema("AccountSet");
 
   it("clears the Domain by sending an empty string and round-trips it", () => {
-    const tx = buildTx(s, filled("AccountSet", { ClearDomain: true, Domain: "ignored.example" }), ACCOUNT);
+    const tx = buildTx(
+      s,
+      filled("AccountSet", { ClearDomain: true, Domain: "ignored.example" }),
+      ACCOUNT,
+    );
     expect(tx.Domain).toBe("");
     const back = valuesFromTx(tx);
     expect(back?.values.ClearDomain).toBe(true);
@@ -658,7 +807,8 @@ describe("AccountSet improvements", () => {
   });
 
   it("supports the previously missing asf flags", () => {
-    const options = (name: string) => s.fields.find((f) => f.name === name)!.options!.map((o) => o.value);
+    const options = (name: string) =>
+      s.fields.find((f) => f.name === name)!.options!.map((o) => o.value);
     for (const v of ["5", "10", "16"]) expect(options("SetFlag")).toContain(v);
     expect(options("ClearFlag")).toContain("5");
     expect(options("ClearFlag")).toContain("10");
@@ -688,7 +838,9 @@ describe("AccountSet improvements", () => {
     expect(valuesFromTx({ TransactionType: "AccountSet", SetFlag: 11 })).toBeNull(); // no such flag
     expect(valuesFromTx({ TransactionType: "AccountSet", SetFlag: 17 })).toBeNull(); // not supported yet
     expect(valuesFromTx({ TransactionType: "AccountSet", ClearFlag: 16 })).toBeNull();
-    expect(valuesFromTx({ TransactionType: "AccountSet", SetFlag: 8, NFTokenMinter: DEST })).toBeNull();
+    expect(
+      valuesFromTx({ TransactionType: "AccountSet", SetFlag: 8, NFTokenMinter: DEST }),
+    ).toBeNull();
   });
 });
 
@@ -703,11 +855,17 @@ describe("TrustSet tri-state flags", () => {
     expect(flags({ NoRipple: "clear" })).toBe(0x40000);
     expect(flags({ Freeze: "set" })).toBe(0x100000);
     expect(flags({ Freeze: "clear" })).toBe(0x200000);
-    expect(flags({ NoRipple: "clear", Freeze: "clear", SetAuth: true })).toBe(0x40000 | 0x200000 | 0x10000);
+    expect(flags({ NoRipple: "clear", Freeze: "clear", SetAuth: true })).toBe(
+      0x40000 | 0x200000 | 0x10000,
+    );
   });
 
   it("round-trips clear flags, including the fully-canonical bit", () => {
-    for (const o of [{ NoRipple: "clear" }, { Freeze: "clear" }, { NoRipple: "set", Freeze: "clear" }]) {
+    for (const o of [
+      { NoRipple: "clear" },
+      { Freeze: "clear" },
+      { NoRipple: "set", Freeze: "clear" },
+    ]) {
       const tx = buildTx(s, filled("TrustSet", { ...base, ...o }), ACCOUNT);
       const back = valuesFromTx({ ...tx, Flags: (tx.Flags as number) | 0x80000000 });
       expect(back?.values).toMatchObject(o);
@@ -716,7 +874,10 @@ describe("TrustSet tri-state flags", () => {
   });
 
   it("falls back to raw JSON for contradictory or unknown flags", () => {
-    const tx = { TransactionType: "TrustSet", LimitAmount: { currency: "USD", issuer: ISSUER, value: "1" } };
+    const tx = {
+      TransactionType: "TrustSet",
+      LimitAmount: { currency: "USD", issuer: ISSUER, value: "1" },
+    };
     expect(valuesFromTx({ ...tx, Flags: 0x20000 | 0x40000 })).toBeNull();
     expect(valuesFromTx({ ...tx, Flags: 0x400000 })).toBeNull(); // deep freeze: not supported
   });
@@ -732,53 +893,115 @@ describe("validation gaps", () => {
   it("rejects an offer that trades XRP for XRP", () => {
     const e = validateValues(
       schema("OfferCreate"),
-      filled("OfferCreate", { TakerGets: { mode: "xrp", value: "1" }, TakerPays: { mode: "xrp", value: "2" } }),
+      filled("OfferCreate", {
+        TakerGets: { mode: "xrp", value: "1" },
+        TakerPays: { mode: "xrp", value: "2" },
+      }),
     );
     expect(e.TakerPays).toMatch(/XRP for XRP/);
   });
 
   it("rejects an XRP Send max on an XRP payment, but not an issued one", () => {
     const e = (sendMax: AmountValue) =>
-      validateValues(schema("Payment"), filled("Payment", { Destination: DEST, Amount: { mode: "xrp", value: "1" }, SendMax: sendMax }));
+      validateValues(
+        schema("Payment"),
+        filled("Payment", {
+          Destination: DEST,
+          Amount: { mode: "xrp", value: "1" },
+          SendMax: sendMax,
+        }),
+      );
     expect(e({ mode: "xrp", value: "2" }).SendMax).toMatch(/can't be XRP/);
-    expect(e({ mode: "issued", value: "2", currency: "USD", issuer: ISSUER }).SendMax).toBeUndefined();
+    expect(
+      e({ mode: "issued", value: "2", currency: "USD", issuer: ISSUER }).SendMax,
+    ).toBeUndefined();
   });
 
   it("rejects paying yourself unless it is a currency conversion", () => {
     const pay = (o: FormValues) =>
-      validateValues(schema("Payment"), filled("Payment", { Destination: ACCOUNT, Amount: { mode: "xrp", value: "1" }, ...o }), { account: ACCOUNT });
+      validateValues(
+        schema("Payment"),
+        filled("Payment", { Destination: ACCOUNT, Amount: { mode: "xrp", value: "1" }, ...o }),
+        { account: ACCOUNT },
+      );
     expect(pay({}).Destination).toMatch(/yourself/);
-    expect(pay({ SendMax: { mode: "issued", value: "2", currency: "USD", issuer: ISSUER } }).Destination).toBeUndefined();
+    expect(
+      pay({ SendMax: { mode: "issued", value: "2", currency: "USD", issuer: ISSUER } }).Destination,
+    ).toBeUndefined();
     // Without a known signer the check is skipped.
-    expect(validateValues(schema("Payment"), filled("Payment", { Destination: ACCOUNT, Amount: { mode: "xrp", value: "1" } })).Destination).toBeUndefined();
+    expect(
+      validateValues(
+        schema("Payment"),
+        filled("Payment", { Destination: ACCOUNT, Amount: { mode: "xrp", value: "1" } }),
+      ).Destination,
+    ).toBeUndefined();
   });
 
   it("rejects 'self' destinations on the other schemas that forbid them", () => {
     const ctx = { account: ACCOUNT };
-    expect(validateValues(schema("CheckCreate"), filled("CheckCreate", { Destination: ACCOUNT, SendMax: { mode: "xrp", value: "1" } }), ctx).Destination).toMatch(/own account/);
-    expect(validateValues(schema("AccountDelete"), filled("AccountDelete", { Destination: ACCOUNT }), ctx).Destination).toMatch(/own account/);
-    expect(validateValues(schema("DepositPreauth"), filled("DepositPreauth", { Authorize: ACCOUNT }), ctx).Authorize).toMatch(/own account/);
-    expect(validateValues(schema("SetRegularKey"), filled("SetRegularKey", { RegularKey: ACCOUNT }), ctx).RegularKey).toMatch(/own account/);
+    expect(
+      validateValues(
+        schema("CheckCreate"),
+        filled("CheckCreate", { Destination: ACCOUNT, SendMax: { mode: "xrp", value: "1" } }),
+        ctx,
+      ).Destination,
+    ).toMatch(/own account/);
+    expect(
+      validateValues(
+        schema("AccountDelete"),
+        filled("AccountDelete", { Destination: ACCOUNT }),
+        ctx,
+      ).Destination,
+    ).toMatch(/own account/);
+    expect(
+      validateValues(
+        schema("DepositPreauth"),
+        filled("DepositPreauth", { Authorize: ACCOUNT }),
+        ctx,
+      ).Authorize,
+    ).toMatch(/own account/);
+    expect(
+      validateValues(schema("SetRegularKey"), filled("SetRegularKey", { RegularKey: ACCOUNT }), ctx)
+        .RegularKey,
+    ).toMatch(/own account/);
     // Escrowing to yourself is legal.
-    expect(validateValues(schema("EscrowCreate"), filled("EscrowCreate", { Destination: ACCOUNT, Amount: "1", FinishAfter: "2030-01-01" }), ctx)).toEqual({});
+    expect(
+      validateValues(
+        schema("EscrowCreate"),
+        filled("EscrowCreate", { Destination: ACCOUNT, Amount: "1", FinishAfter: "2030-01-01" }),
+        ctx,
+      ),
+    ).toEqual({});
   });
 
   it("accepts exponent notation coming back from the ledger", () => {
     const amountFor = (value: string) =>
-      valuesFromTx({ TransactionType: "Payment", Destination: DEST, Amount: { currency: "USD", issuer: ISSUER, value } })?.values.Amount;
+      valuesFromTx({
+        TransactionType: "Payment",
+        Destination: DEST,
+        Amount: { currency: "USD", issuer: ISSUER, value },
+      })?.values.Amount;
     expect(amountFor("1e3")).toMatchObject({ mode: "issued", value: "1000" });
     expect(amountFor("1.5e-5")).toMatchObject({ value: "0.000015" });
     expect(amountFor("5e-1")).toMatchObject({ value: "0.5" });
     expect(amountFor("1.25e2")).toMatchObject({ value: "125" });
     expect(amountFor("12.5")).toMatchObject({ value: "12.5" });
     expect(amountFor("1e500")).toBeUndefined(); // absurd exponent: raw JSON
-    const trust = valuesFromTx({ TransactionType: "TrustSet", LimitAmount: { currency: "USD", issuer: ISSUER, value: "1e3" } });
+    const trust = valuesFromTx({
+      TransactionType: "TrustSet",
+      LimitAmount: { currency: "USD", issuer: ISSUER, value: "1e3" },
+    });
     expect(trust?.values.limit).toBe("1000");
   });
 });
 
 describe("isFieldActive (single showWhen rule)", () => {
-  const field = (equals: string | boolean) => ({ name: "x", label: "x", kind: "text" as const, showWhen: { field: "t", equals } });
+  const field = (equals: string | boolean) => ({
+    name: "x",
+    label: "x",
+    kind: "text" as const,
+    showWhen: { field: "t", equals },
+  });
 
   it("treats a missing or empty value as false for boolean conditions", () => {
     expect(isFieldActive(field(false), {})).toBe(true);
@@ -796,7 +1019,13 @@ describe("isFieldActive (single showWhen rule)", () => {
 
   it("is the same rule the form uses", async () => {
     const { isFieldVisible } = await import("../components/builder/TxForm");
-    for (const [eq, values] of [[false, {}], [false, { t: true }], [true, {}], ["a", { t: "a" }], ["a", {}]] as const) {
+    for (const [eq, values] of [
+      [false, {}],
+      [false, { t: true }],
+      [true, {}],
+      ["a", { t: "a" }],
+      ["a", {}],
+    ] as const) {
       expect(isFieldVisible(field(eq), values)).toBe(isFieldActive(field(eq), values));
     }
   });
@@ -814,7 +1043,14 @@ describe("valuesFromTx reports what it ignores", () => {
       SigningPubKey: "AB",
       TxnSignature: "CD",
     });
-    expect(r?.dropped).toEqual(["Account", "Fee", "Sequence", "LastLedgerSequence", "SigningPubKey", "TxnSignature"]);
+    expect(r?.dropped).toEqual([
+      "Account",
+      "Fee",
+      "Sequence",
+      "LastLedgerSequence",
+      "SigningPubKey",
+      "TxnSignature",
+    ]);
   });
 
   it("reports nothing when there is nothing to lose", () => {
@@ -829,11 +1065,14 @@ describe("valuesFromTx reports what it ignores", () => {
 });
 
 describe("new transaction types", () => {
-  const errs = (type: string, o: FormValues, ctx?: { account?: string }) => validateValues(schema(type), filled(type, o), ctx);
+  const errs = (type: string, o: FormValues, ctx?: { account?: string }) =>
+    validateValues(schema(type), filled(type, o), ctx);
 
   it("AccountDelete requires a destination and builds the minimal tx", () => {
     expect(errs("AccountDelete", {}).Destination).toMatch(/required/);
-    expect(buildTx(schema("AccountDelete"), filled("AccountDelete", { Destination: DEST }), ACCOUNT)).toEqual({
+    expect(
+      buildTx(schema("AccountDelete"), filled("AccountDelete", { Destination: DEST }), ACCOUNT),
+    ).toEqual({
       TransactionType: "AccountDelete",
       Account: ACCOUNT,
       Destination: DEST,
@@ -849,7 +1088,9 @@ describe("new transaction types", () => {
   it("CheckCash needs exactly one of Amount or DeliverMin", () => {
     const x = { mode: "xrp", value: "1" } as const;
     expect(errs("CheckCash", { CheckID: INVOICE }).Amount).toMatch(/exact amount or a minimum/);
-    expect(errs("CheckCash", { CheckID: INVOICE, Amount: x, DeliverMin: x }).DeliverMin).toMatch(/not both/);
+    expect(errs("CheckCash", { CheckID: INVOICE, Amount: x, DeliverMin: x }).DeliverMin).toMatch(
+      /not both/,
+    );
     expect(errs("CheckCash", { CheckID: INVOICE, Amount: x })).toEqual({});
     expect(errs("CheckCash", { CheckID: INVOICE, DeliverMin: x })).toEqual({});
     expect(errs("CheckCash", { CheckID: "ABCD", Amount: x }).CheckID).toMatch(/exactly 64/);
@@ -860,43 +1101,85 @@ describe("new transaction types", () => {
     const zero = { mode: "xrp", value: "0" } as const;
     const sell = errs("NFTokenCreateOffer", { NFTokenID: NFT_ID, Sell: true, Amount: zero });
     expect(sell).toEqual({});
-    const sellTx = buildTx(s, filled("NFTokenCreateOffer", { NFTokenID: NFT_ID, Sell: true, Amount: zero, Owner: DEST }), ACCOUNT);
+    const sellTx = buildTx(
+      s,
+      filled("NFTokenCreateOffer", { NFTokenID: NFT_ID, Sell: true, Amount: zero, Owner: DEST }),
+      ACCOUNT,
+    );
     expect(sellTx.Flags).toBe(1);
     expect(sellTx.Amount).toBe("0");
     expect(sellTx).not.toHaveProperty("Owner"); // hidden field never leaks
     const buy = errs("NFTokenCreateOffer", { NFTokenID: NFT_ID, Amount: zero });
     expect(buy.Owner).toMatch(/required/);
     expect(buy.Amount).toMatch(/above 0/);
-    expect(errs("NFTokenCreateOffer", { NFTokenID: NFT_ID, Owner: ACCOUNT, Amount: { mode: "xrp", value: "1" } }, { account: ACCOUNT }).Owner).toMatch(/own account/);
+    expect(
+      errs(
+        "NFTokenCreateOffer",
+        { NFTokenID: NFT_ID, Owner: ACCOUNT, Amount: { mode: "xrp", value: "1" } },
+        { account: ACCOUNT },
+      ).Owner,
+    ).toMatch(/own account/);
     // A sell offer that names an owner is contradictory: raw JSON.
-    expect(valuesFromTx({ TransactionType: "NFTokenCreateOffer", NFTokenID: NFT_ID, Amount: "1", Owner: DEST, Flags: 1 })).toBeNull();
+    expect(
+      valuesFromTx({
+        TransactionType: "NFTokenCreateOffer",
+        NFTokenID: NFT_ID,
+        Amount: "1",
+        Owner: DEST,
+        Flags: 1,
+      }),
+    ).toBeNull();
   });
 
   it("NFTokenAcceptOffer: needs an offer, and a broker fee needs both", () => {
     const fee = { mode: "xrp", value: "1" } as const;
-    expect(errs("NFTokenAcceptOffer", {}).NFTokenSellOffer).toMatch(/sell offer ID, a buy offer ID/);
+    expect(errs("NFTokenAcceptOffer", {}).NFTokenSellOffer).toMatch(
+      /sell offer ID, a buy offer ID/,
+    );
     expect(errs("NFTokenAcceptOffer", { NFTokenSellOffer: OFFER_A })).toEqual({});
-    expect(errs("NFTokenAcceptOffer", { NFTokenSellOffer: OFFER_A, NFTokenBrokerFee: fee }).NFTokenBrokerFee).toMatch(/both/);
-    expect(errs("NFTokenAcceptOffer", { NFTokenSellOffer: OFFER_A, NFTokenBuyOffer: OFFER_B, NFTokenBrokerFee: fee })).toEqual({});
+    expect(
+      errs("NFTokenAcceptOffer", { NFTokenSellOffer: OFFER_A, NFTokenBrokerFee: fee })
+        .NFTokenBrokerFee,
+    ).toMatch(/both/);
+    expect(
+      errs("NFTokenAcceptOffer", {
+        NFTokenSellOffer: OFFER_A,
+        NFTokenBuyOffer: OFFER_B,
+        NFTokenBrokerFee: fee,
+      }),
+    ).toEqual({});
   });
 
   it("NFTokenCancelOffer turns lines or commas into an array and validates every id", () => {
     const s = schema("NFTokenCancelOffer");
-    const tx = buildTx(s, filled("NFTokenCancelOffer", { NFTokenOffers: `${OFFER_A.toLowerCase()}, ${OFFER_B}\n` }), ACCOUNT);
+    const tx = buildTx(
+      s,
+      filled("NFTokenCancelOffer", { NFTokenOffers: `${OFFER_A.toLowerCase()}, ${OFFER_B}\n` }),
+      ACCOUNT,
+    );
     expect(tx.NFTokenOffers).toEqual([OFFER_A, OFFER_B]);
     expect(errs("NFTokenCancelOffer", {}).NFTokenOffers).toMatch(/required/);
-    expect(errs("NFTokenCancelOffer", { NFTokenOffers: "nope" }).NFTokenOffers).toMatch(/64-character hex/);
-    expect(errs("NFTokenCancelOffer", { NFTokenOffers: `${OFFER_A}\n${OFFER_A.toLowerCase()}` }).NFTokenOffers).toMatch(/only once/);
+    expect(errs("NFTokenCancelOffer", { NFTokenOffers: "nope" }).NFTokenOffers).toMatch(
+      /64-character hex/,
+    );
+    expect(
+      errs("NFTokenCancelOffer", { NFTokenOffers: `${OFFER_A}\n${OFFER_A.toLowerCase()}` })
+        .NFTokenOffers,
+    ).toMatch(/only once/);
     expect(valuesFromTx({ TransactionType: "NFTokenCancelOffer", NFTokenOffers: [] })).toBeNull();
   });
 
   it("DepositPreauth needs exactly one of Authorize or Unauthorize", () => {
     expect(errs("DepositPreauth", {}).Authorize).toMatch(/authorize or to revoke/);
-    expect(errs("DepositPreauth", { Authorize: DEST, Unauthorize: OTHER }).Unauthorize).toMatch(/one account at a time/);
+    expect(errs("DepositPreauth", { Authorize: DEST, Unauthorize: OTHER }).Unauthorize).toMatch(
+      /one account at a time/,
+    );
     expect(errs("DepositPreauth", { Authorize: DEST })).toEqual({});
     expect(errs("DepositPreauth", { Unauthorize: DEST })).toEqual({});
     // Credential-based preauth isn't supported: keep as raw JSON.
-    expect(valuesFromTx({ TransactionType: "DepositPreauth", AuthorizeCredentials: [] })).toBeNull();
+    expect(
+      valuesFromTx({ TransactionType: "DepositPreauth", AuthorizeCredentials: [] }),
+    ).toBeNull();
   });
 
   describe("SignerListSet", () => {
@@ -917,7 +1200,11 @@ describe("new transaction types", () => {
     it("deletes the list with quorum 0 and no signers", () => {
       expect(e("0", "")).toEqual({});
       expect(e("0", `${DEST}:1`).SignerEntries).toMatch(/delete the list/);
-      const tx = buildTx(schema("SignerListSet"), filled("SignerListSet", { SignerQuorum: "0" }), ACCOUNT);
+      const tx = buildTx(
+        schema("SignerListSet"),
+        filled("SignerListSet", { SignerQuorum: "0" }),
+        ACCOUNT,
+      );
       expect(tx).toEqual({ TransactionType: "SignerListSet", Account: ACCOUNT, SignerQuorum: 0 });
     });
 
@@ -930,7 +1217,9 @@ describe("new transaction types", () => {
       expect(e("1", `${ACCOUNT}:1`, { account: ACCOUNT }).SignerEntries).toMatch(/own account/);
       expect(e("5", `${DEST}:2\n${OTHER}:2`).SignerQuorum).toMatch(/can't exceed.*4/);
       expect(e("4", `${DEST}:2\n${OTHER}:2`)).toEqual({});
-      expect(e("1", Array.from({ length: 33 }, () => `${DEST}:1`).join("\n")).SignerEntries).toMatch(/At most 32/);
+      expect(
+        e("1", Array.from({ length: 33 }, () => `${DEST}:1`).join("\n")).SignerEntries,
+      ).toMatch(/At most 32/);
     });
 
     it("accepts space or comma between address and weight", () => {

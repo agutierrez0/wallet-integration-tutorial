@@ -113,7 +113,9 @@ describe("useAction", () => {
   });
 
   it("passes extra args after the context", async () => {
-    const { result } = renderHook(() => useAction(async (_ctx, a: number, b: string) => `${a}${b}`));
+    const { result } = renderHook(() =>
+      useAction(async (_ctx, a: number, b: string) => `${a}${b}`),
+    );
     await act(async () => {
       await result.current.run(1, "x");
     });

@@ -26,7 +26,9 @@ describe("normalizeNetworkHint", () => {
 
 describe("networkMismatchMessage", () => {
   it("names both networks when they differ", () => {
-    expect(networkMismatchMessage("Testnet", "devnet")).toMatch(/wallet is on Testnet but the app is on Devnet/);
+    expect(networkMismatchMessage("Testnet", "devnet")).toMatch(
+      /wallet is on Testnet but the app is on Devnet/,
+    );
   });
   it("is quiet when they match, are unknown, or missing", () => {
     expect(networkMismatchMessage("testnet", "testnet")).toBeNull();

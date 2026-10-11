@@ -60,7 +60,13 @@ function isTypingTarget(el: EventTarget | null): boolean {
   return el.isContentEditable || ["INPUT", "TEXTAREA", "SELECT"].includes(el.tagName);
 }
 
-export function TypeSelector({ schemas, categories, value, onSelect, disabled }: TypeSelectorProps) {
+export function TypeSelector({
+  schemas,
+  categories,
+  value,
+  onSelect,
+  disabled,
+}: TypeSelectorProps) {
   const uid = useId();
   const listId = `${uid}-list`;
   const optionId = (type: string) => `${uid}-opt-${type}`;
@@ -86,7 +92,11 @@ export function TypeSelector({ schemas, categories, value, onSelect, disabled }:
   const sections = useMemo(() => {
     if (searching) return [{ id: "results", label: "", items: results }];
     return categories
-      .map((c) => ({ id: c.id as string, label: c.label, items: results.filter((s) => s.category === c.id) }))
+      .map((c) => ({
+        id: c.id as string,
+        label: c.label,
+        items: results.filter((s) => s.category === c.id),
+      }))
       .filter((s) => s.items.length > 0);
   }, [categories, results, searching]);
 
@@ -230,7 +240,9 @@ export function TypeSelector({ schemas, categories, value, onSelect, disabled }:
         <div className="ts-chip-clip">
           {selected && (
             <div className="ts-chip">
-              <span className="ts-icon" aria-hidden="true">{selected.icon}</span>
+              <span className="ts-icon" aria-hidden="true">
+                {selected.icon}
+              </span>
               <span className="ts-chip-text">
                 <span className="ts-chip-title">
                   {selected.label} <code>{selected.type}</code>
@@ -257,9 +269,26 @@ export function TypeSelector({ schemas, categories, value, onSelect, disabled }:
         <div className="ts-picker-clip">
           <div className="ts-picker">
             <div className="ts-search">
-              <svg className="ts-search-icon" viewBox="0 0 20 20" aria-hidden="true" focusable="false">
-                <circle cx="8.5" cy="8.5" r="5.5" fill="none" stroke="currentColor" strokeWidth="1.8" />
-                <path d="M13 13l4 4" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+              <svg
+                className="ts-search-icon"
+                viewBox="0 0 20 20"
+                aria-hidden="true"
+                focusable="false"
+              >
+                <circle
+                  cx="8.5"
+                  cy="8.5"
+                  r="5.5"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.8"
+                />
+                <path
+                  d="M13 13l4 4"
+                  stroke="currentColor"
+                  strokeWidth="1.8"
+                  strokeLinecap="round"
+                />
               </svg>
               <input
                 ref={inputRef}
@@ -293,7 +322,9 @@ export function TypeSelector({ schemas, categories, value, onSelect, disabled }:
                   ×
                 </button>
               ) : (
-                <span className="ts-kbd" aria-hidden="true">/</span>
+                <span className="ts-kbd" aria-hidden="true">
+                  /
+                </span>
               )}
             </div>
 
@@ -322,9 +353,7 @@ export function TypeSelector({ schemas, categories, value, onSelect, disabled }:
             <div id={listId} role="listbox" aria-label="Transaction types" className="ts-list">
               {flat.length === 0 && (
                 <div className="ts-empty">
-                  <p>
-                    Nothing matches{searching ? <> “{query.trim()}”</> : null}.
-                  </p>
+                  <p>Nothing matches{searching ? <> “{query.trim()}”</> : null}.</p>
                   <button
                     type="button"
                     className="ts-cat"
@@ -367,7 +396,9 @@ export function TypeSelector({ schemas, categories, value, onSelect, disabled }:
                           onClick={() => choose(s.type)}
                           onMouseMove={() => index !== activeIndex && setActiveIndex(index)}
                         >
-                          <span className="ts-icon" aria-hidden="true">{s.icon}</span>
+                          <span className="ts-icon" aria-hidden="true">
+                            {s.icon}
+                          </span>
                           <span className="ts-card-text">
                             <span className="ts-card-title">{s.label}</span>
                             <span className="ts-card-desc">{s.description}</span>

@@ -121,11 +121,7 @@ describe("loadHistory", () => {
   });
 
   it("sorts newest first and de-dupes by hash, keeping the newest", () => {
-    seed(storage, [
-      entry(1),
-      entry(3, { hash: entry(1).hash, id: "newer-same-hash" }),
-      entry(2),
-    ]);
+    seed(storage, [entry(1), entry(3, { hash: entry(1).hash, id: "newer-same-hash" }), entry(2)]);
     expect(loadHistory(storage).map((e) => e.id)).toEqual(["newer-same-hash", "id-2"]);
   });
 });
@@ -434,8 +430,10 @@ const HASH = "A".repeat(64);
 
 describe("lookupTx", () => {
   const mockClient = (request: (req: unknown) => Promise<unknown>) =>
-    vi.mocked(withClient).mockImplementation(((_net: unknown, fn: (c: unknown) => unknown) =>
-      fn({ request })) as never);
+    vi
+      .mocked(withClient)
+      .mockImplementation(((_net: unknown, fn: (c: unknown) => unknown) =>
+        fn({ request })) as never);
 
   it("returns found, validated and the engine result", async () => {
     const request = vi.fn().mockResolvedValue({
@@ -451,7 +449,9 @@ describe("lookupTx", () => {
   });
 
   it("reports not validated when the ledger hasn't closed yet", async () => {
-    mockClient(vi.fn().mockResolvedValue({ result: { meta: { TransactionResult: "tesSUCCESS" } } }));
+    mockClient(
+      vi.fn().mockResolvedValue({ result: { meta: { TransactionResult: "tesSUCCESS" } } }),
+    );
     await expect(lookupTx("devnet", HASH)).resolves.toMatchObject({
       found: true,
       validated: false,
@@ -459,7 +459,9 @@ describe("lookupTx", () => {
   });
 
   it("treats txnNotFound as found:false (via data.error or message)", async () => {
-    mockClient(vi.fn().mockRejectedValue(Object.assign(new Error("x"), { data: { error: "txnNotFound" } })));
+    mockClient(
+      vi.fn().mockRejectedValue(Object.assign(new Error("x"), { data: { error: "txnNotFound" } })),
+    );
     await expect(lookupTx("testnet", HASH)).resolves.toEqual({ found: false });
     mockClient(vi.fn().mockRejectedValue(new Error("RippledError: txnNotFound")));
     await expect(lookupTx("testnet", HASH)).resolves.toEqual({ found: false });
@@ -470,7 +472,6 @@ describe("lookupTx", () => {
     await expect(lookupTx("testnet", HASH)).rejects.toThrow("connection lost");
   });
 });
-
 
 describe("tampered storage", () => {
   it("drops rows whose network is an inherited object key", () => {
@@ -547,7 +548,9 @@ describe("explorerUrl and lookupTx with bad input", () => {
   it("lookupTx rejects before connecting when the hash or network is bad", async () => {
     vi.mocked(withClient).mockClear();
     await expect(lookupTx("testnet", "nope")).rejects.toThrow(/64 hex/);
-    await expect(lookupTx("constructor" as never, "A".repeat(64))).rejects.toThrow(/Unknown network/);
+    await expect(lookupTx("constructor" as never, "A".repeat(64))).rejects.toThrow(
+      /Unknown network/,
+    );
     expect(withClient).not.toHaveBeenCalled();
   });
 });

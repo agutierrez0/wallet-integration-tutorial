@@ -17,7 +17,14 @@ function localEquivalent(v: string): string | null {
 }
 
 // The browser's picker only has wall-clock values; this field always means UTC.
-export function DateTimeField({ def, value, onChange, onBlur, error, disabled }: FieldProps<string>) {
+export function DateTimeField({
+  def,
+  value,
+  onChange,
+  onBlur,
+  error,
+  disabled,
+}: FieldProps<string>) {
   const v = typeof value === "string" ? value : "";
   const local = localEquivalent(v);
 
@@ -56,13 +63,20 @@ export function DateTimeField({ def, value, onChange, onBlur, error, disabled }:
               </button>
             ))}
             {v && (
-              <button type="button" className="txf-chip" disabled={disabled} onClick={() => onChange("")}>
+              <button
+                type="button"
+                className="txf-chip"
+                disabled={disabled}
+                onClick={() => onChange("")}
+              >
                 Clear
               </button>
             )}
           </div>
           <p className="txf-hint" aria-live="polite">
-            {local ? `Time is UTC, not your local time. In your timezone: ${local}.` : "Time is UTC, not your local time."}
+            {local
+              ? `Time is UTC, not your local time. In your timezone: ${local}.`
+              : "Time is UTC, not your local time."}
           </p>
         </>
       )}

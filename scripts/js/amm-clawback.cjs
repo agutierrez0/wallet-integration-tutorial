@@ -36,7 +36,7 @@ async function ammClawbackDevnet() {
   console.log("Balances of wallets lpWallet & issuerWallet:");
   console.log(
     await client.getXrpBalance(lpWallet.classicAddress),
-    await client.getXrpBalance(issuerWallet.classicAddress)
+    await client.getXrpBalance(issuerWallet.classicAddress),
   );
   const accountSetTx = {
     TransactionType: "AccountSet",

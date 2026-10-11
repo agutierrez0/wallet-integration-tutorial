@@ -143,7 +143,10 @@ describe("POST /api/xaman/payload", () => {
     ["unknown network", { txjson: { TransactionType: "Payment" }, network: "stagenet" }],
     ["missing network", { txjson: { TransactionType: "Payment" } }],
     ["missing network on signIn", { signIn: true }],
-    ["non-boolean submit", { txjson: { TransactionType: "Payment" }, submit: "yes", network: "testnet" }],
+    [
+      "non-boolean submit",
+      { txjson: { TransactionType: "Payment" }, submit: "yes", network: "testnet" },
+    ],
   ])("rejects %s with 400", async (_name, body) => {
     const { client, payload } = makeXaman();
     const res = await post(createApp(config, client), body);
@@ -219,7 +222,9 @@ describe("GET /api/xaman/payload/:uuid status mapping", () => {
   it("does not forward request_json or application details", async () => {
     const { client, payload } = makeXaman();
     payload.get.mockResolvedValue(payloadFixture({ signed: true }, { hex: "AA" }));
-    const text = await (await createApp(config, client).request(`/api/xaman/payload/${UUID}`)).text();
+    const text = await (
+      await createApp(config, client).request(`/api/xaman/payload/${UUID}`)
+    ).text();
     expect(text).not.toContain("rSECRETREQUESTJSON");
     expect(text).not.toContain("internal-app-name");
   });
@@ -235,9 +240,13 @@ describe("GET /api/xaman/payload/:uuid status mapping", () => {
   it("returns 404 when Xaman has no such payload", async () => {
     const { client, payload } = makeXaman();
     payload.get.mockResolvedValue(null);
-    expect((await createApp(config, client).request(`/api/xaman/payload/${UUID}`)).status).toBe(404);
+    expect((await createApp(config, client).request(`/api/xaman/payload/${UUID}`)).status).toBe(
+      404,
+    );
     payload.get.mockResolvedValue(payloadFixture({ exists: false }));
-    expect((await createApp(config, client).request(`/api/xaman/payload/${UUID}`)).status).toBe(404);
+    expect((await createApp(config, client).request(`/api/xaman/payload/${UUID}`)).status).toBe(
+      404,
+    );
   });
 });
 
@@ -280,7 +289,9 @@ describe("DELETE /api/xaman/payload/:uuid", () => {
     const app = createApp(config, client);
     expect((await app.request("/api/xaman/payload/nope", { method: "DELETE" })).status).toBe(400);
     payload.cancel.mockResolvedValue(null);
-    expect((await app.request(`/api/xaman/payload/${UUID}`, { method: "DELETE" })).status).toBe(404);
+    expect((await app.request(`/api/xaman/payload/${UUID}`, { method: "DELETE" })).status).toBe(
+      404,
+    );
   });
 });
 
@@ -530,7 +541,9 @@ describe("rate limiting tiers and client identity", () => {
     const { client } = makeXaman();
     const app = createApp(config, client);
     for (let i = 0; i < 240; i++) {
-      await app.request("/api/xaman/payload/nope", { headers: { "x-forwarded-for": `9.9.9.${i}` } });
+      await app.request("/api/xaman/payload/nope", {
+        headers: { "x-forwarded-for": `9.9.9.${i}` },
+      });
     }
     const res = await app.request("/api/xaman/payload/nope", {
       headers: { "x-forwarded-for": "8.8.8.8", "x-real-ip": "7.7.7.7" },
@@ -562,10 +575,12 @@ describe("rate limiting tiers and client identity", () => {
       });
     }
     expect(
-      (await app.request("/api/xaman/payload/nope", { headers: { "x-real-ip": "5.5.5.5" } })).status,
+      (await app.request("/api/xaman/payload/nope", { headers: { "x-real-ip": "5.5.5.5" } }))
+        .status,
     ).toBe(429);
     expect(
-      (await app.request("/api/xaman/payload/nope", { headers: { "x-real-ip": "6.6.6.6" } })).status,
+      (await app.request("/api/xaman/payload/nope", { headers: { "x-real-ip": "6.6.6.6" } }))
+        .status,
     ).toBe(400);
   });
 });

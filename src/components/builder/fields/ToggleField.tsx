@@ -1,6 +1,13 @@
 import { FieldShell, type FieldProps } from "./FieldShell";
 
-export function ToggleField({ def, value, onChange, onBlur, error, disabled }: FieldProps<boolean>) {
+export function ToggleField({
+  def,
+  value,
+  onChange,
+  onBlur,
+  error,
+  disabled,
+}: FieldProps<boolean>) {
   const on = value === true;
   return (
     <FieldShell def={def} error={error} className="txf-field--toggle">

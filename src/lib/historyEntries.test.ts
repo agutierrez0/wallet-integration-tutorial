@@ -26,7 +26,13 @@ import { buildTx, getSchema, valuesFromTx } from "./txSchemas";
 const wallet = Wallet.fromSeed("sEdTM1uX8pu2do5XvTnutH6HsouMaM2");
 
 function signed(tx: TxJson) {
-  const filled = { ...tx, Account: wallet.address, Fee: "12", Sequence: 1, LastLedgerSequence: 100 };
+  const filled = {
+    ...tx,
+    Account: wallet.address,
+    Fee: "12",
+    Sequence: 1,
+    LastLedgerSequence: 100,
+  };
   return wallet.sign(filled as never).tx_blob;
 }
 
@@ -127,7 +133,10 @@ describe("submit patches (applied in order after signing)", () => {
   it("builds the row first, then the patch moves it signed -> submitted", () => {
     const e = entry();
     expect(e.status).toBe("signed");
-    const after = { ...e, ...patchFromXrplJsSubmit({ result: { engine_result: "tesSUCCESS" } }, 50) };
+    const after = {
+      ...e,
+      ...patchFromXrplJsSubmit({ result: { engine_result: "tesSUCCESS" } }, 50),
+    };
     expect(after.status).toBe("submitted");
     expect(after.id).toBe(e.id);
     expect(after.createdAt).toBe(e.createdAt);
@@ -185,7 +194,11 @@ describe("restore", () => {
 
   it("repopulates a Payment form with the right type and fields", () => {
     const e = entry({ tx: autofilled });
-    const plan = prepareRestore(e, { networkId: "testnet", mainnetOk: false, address: wallet.address });
+    const plan = prepareRestore(e, {
+      networkId: "testnet",
+      mainnetOk: false,
+      address: wallet.address,
+    });
     const r = valuesFromTx(JSON.parse(plan.text));
     expect(r?.schema.type).toBe("Payment");
     expect(r?.values.Destination).toBe(built.Destination);
@@ -226,7 +239,11 @@ describe("restore", () => {
   });
 
   it("confirms the load and stays on the same network", () => {
-    const plan = prepareRestore(entry(), { networkId: "testnet", mainnetOk: false, address: wallet.address });
+    const plan = prepareRestore(entry(), {
+      networkId: "testnet",
+      mainnetOk: false,
+      address: wallet.address,
+    });
     expect(plan.switchTo).toBeUndefined();
     expect(plan.notices).toEqual([{ tone: "success", message: "Loaded Payment from history." }]);
   });
@@ -267,7 +284,6 @@ describe("newEntryId", () => {
   });
 });
 
-
 const H1 = "A".repeat(64);
 const H2 = "B".repeat(64);
 const H3 = "C".repeat(64);
@@ -279,7 +295,18 @@ describe("normalizeHash", () => {
   });
 
   it("rejects everything else", () => {
-    for (const bad of ["", "ABCDEF", "G".repeat(64), `${H1}0`, H1.slice(1), " " + H1, 42, null, undefined, {}]) {
+    for (const bad of [
+      "",
+      "ABCDEF",
+      "G".repeat(64),
+      `${H1}0`,
+      H1.slice(1),
+      " " + H1,
+      42,
+      null,
+      undefined,
+      {},
+    ]) {
       expect(normalizeHash(bad)).toBeNull();
     }
   });
@@ -335,8 +362,12 @@ describe("findEntryIndex / rekeyEntry", () => {
 describe("engineCodeFromError", () => {
   it("reads structured rippled data", () => {
     expect(engineCodeFromError({ data: { engine_result: "tefMAX_LEDGER" } })).toBe("tefMAX_LEDGER");
-    expect(engineCodeFromError({ data: { result: { engine_result: "temBAD_FEE" } } })).toBe("temBAD_FEE");
-    expect(engineCodeFromError({ engine_result: "tecUNFUNDED_PAYMENT" })).toBe("tecUNFUNDED_PAYMENT");
+    expect(engineCodeFromError({ data: { result: { engine_result: "temBAD_FEE" } } })).toBe(
+      "temBAD_FEE",
+    );
+    expect(engineCodeFromError({ engine_result: "tecUNFUNDED_PAYMENT" })).toBe(
+      "tecUNFUNDED_PAYMENT",
+    );
   });
 
   it("falls back to the message text", () => {
@@ -392,7 +423,9 @@ describe("failure and lookup patches", () => {
 
   it("a failed row that turns up on-chain becomes submitted with its result", () => {
     const failed = { submitVia: "xrpljs" as const, submittedAt: 5 };
-    expect(patchFromLookup(failed, { found: true, validated: true, engineResult: "tesSUCCESS" }, 99)).toEqual({
+    expect(
+      patchFromLookup(failed, { found: true, validated: true, engineResult: "tesSUCCESS" }, 99),
+    ).toEqual({
       status: "submitted",
       submitVia: "xrpljs",
       submittedAt: 5,

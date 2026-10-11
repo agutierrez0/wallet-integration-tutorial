@@ -12,9 +12,15 @@ import { toView } from "./status.js";
 // The slice of xumm-sdk this server uses. Injected so tests can mock it.
 export interface XamanClient {
   payload: {
-    create(body: XummTypes.XummPostPayloadBodyJson, returnErrors?: boolean): Promise<XummTypes.XummPostPayloadResponse | null>;
+    create(
+      body: XummTypes.XummPostPayloadBodyJson,
+      returnErrors?: boolean,
+    ): Promise<XummTypes.XummPostPayloadResponse | null>;
     get(uuid: string, returnErrors?: boolean): Promise<XummTypes.XummGetPayloadResponse | null>;
-    cancel(uuid: string, returnErrors?: boolean): Promise<XummTypes.XummDeletePayloadResponse | null>;
+    cancel(
+      uuid: string,
+      returnErrors?: boolean,
+    ): Promise<XummTypes.XummDeletePayloadResponse | null>;
   };
 }
 
@@ -136,7 +142,10 @@ export function createApp(config: Config, xaman: XamanClient) {
       const { txjson, signIn, submit, network } = parsed.data;
       if (network === "mainnet" && !config.allowMainnet) {
         return c.json(
-          errorBody("MAINNET_DISABLED", "Mainnet is disabled on this server. Use testnet or devnet."),
+          errorBody(
+            "MAINNET_DISABLED",
+            "Mainnet is disabled on this server. Use testnet or devnet.",
+          ),
           403,
         );
       }
@@ -196,9 +205,13 @@ export function createApp(config: Config, xaman: XamanClient) {
           ? String(res.result?.reason)
           : "UNKNOWN";
         return c.json(
-          errorBody("CANNOT_CANCEL", "The request could not be cancelled and may still be signed.", {
-            reason,
-          }),
+          errorBody(
+            "CANNOT_CANCEL",
+            "The request could not be cancelled and may still be signed.",
+            {
+              reason,
+            },
+          ),
           409,
         );
       }

@@ -80,9 +80,7 @@ export function engineCodeFromError(e: unknown): string | undefined {
 
 // "Check on-chain" is offered for rows we can't be sure about: signed but not known to be
 // submitted, or failed with no result (a thrown timeout can still have reached the ledger).
-export function canCheckOnChain(
-  entry: Pick<HistoryEntry, "status" | "engineResult">,
-): boolean {
+export function canCheckOnChain(entry: Pick<HistoryEntry, "status" | "engineResult">): boolean {
   return entry.status === "signed" || (entry.status === "failed" && !entry.engineResult);
 }
 

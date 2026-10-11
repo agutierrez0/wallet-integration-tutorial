@@ -102,7 +102,9 @@ export function QrPrompt({ prompt, walletName, onCancel }: Props) {
       <div className="qr-dialog">
         <h2 id="qr-title">{prompt.title}</h2>
         <p className="muted" role="status" aria-live="polite">
-          {expired ? `This request expired. Close this and try again.` : `Waiting for approval in ${walletName}…`}
+          {expired
+            ? `This request expired. Close this and try again.`
+            : `Waiting for approval in ${walletName}…`}
         </p>
 
         {prompt.qrPng && !imgFailed && !expired ? (
@@ -122,8 +124,8 @@ export function QrPrompt({ prompt, walletName, onCancel }: Props) {
 
         {expired ? (
           <p className="qr-expired">
-            Expired. {walletName} can no longer approve this request. Close this window, then
-            start again.
+            Expired. {walletName} can no longer approve this request. Close this window, then start
+            again.
           </p>
         ) : (
           <div className="qr-meta">
@@ -132,7 +134,9 @@ export function QrPrompt({ prompt, walletName, onCancel }: Props) {
               {left === null ? "Waiting…" : `Expires in ${formatCountdown(left)}`}
             </span>
             <span className="ui-sr-only">
-              {left !== null ? `This request expires in about ${Math.ceil(left / 60)} minute(s).` : ""}
+              {left !== null
+                ? `This request expires in about ${Math.ceil(left / 60)} minute(s).`
+                : ""}
             </span>
           </div>
         )}
