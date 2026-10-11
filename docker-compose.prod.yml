@@ -1,0 +1,26 @@
+name: xrpl-wallet-sandbox-prod
+
+services:
+  web:
+    build:
+      context: .
+      target: runner
+    restart: unless-stopped
+    depends_on:
+      - server
+
+  server:
+    build:
+      context: ./server
+      target: runner
+    restart: unless-stopped
+    # Not published to the host: reachable only from web over the internal network
+    environment:
+      - XAMAN_API_KEY
+      - XAMAN_API_SECRET
+      - ALLOWED_ORIGIN
+      - TRUST_PROXY=true
+
+networks:
+  default:
+    name: xrpl-wallet-sandbox-prod-network

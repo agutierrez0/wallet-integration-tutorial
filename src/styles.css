@@ -120,3 +120,31 @@ main > .ui-alert { margin-top: 16px; }
 @media (max-width: 480px) {
   .row > .ui-btn { flex: 1 1 auto; }
 }
+
+/* QR approval prompt (Xaman) */
+.qr-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: grid;
+  place-items: center;
+  padding: 16px;
+  background: rgba(10, 12, 18, 0.6);
+}
+.qr-dialog {
+  width: min(100%, 360px);
+  max-height: 100%;
+  overflow: auto;
+  padding: 20px;
+  text-align: center;
+  background: var(--card);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+}
+.qr-dialog h2 { margin: 0 0 4px; font-size: 1.1rem; }
+.qr-image { display: block; margin: 12px auto; background: #fff; border-radius: 8px; padding: 6px; max-width: 100%; height: auto; }
+.qr-meta { display: flex; gap: 8px; align-items: center; justify-content: center; color: var(--muted); font-size: 0.9rem; }
+.qr-actions { justify-content: center; margin-top: 12px; }
+.qr-actions a.ui-btn { text-decoration: none; }
+.wallet-hint { margin: 0; }
