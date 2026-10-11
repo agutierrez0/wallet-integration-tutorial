@@ -6,6 +6,7 @@ import { ActionButton, Alert, Skeleton, StatusPill } from "./ui";
 const INSTALL_URLS: Record<string, string> = {
   crossmark: "https://crossmark.io",
   gemwallet: "https://gemwallet.app",
+  xaman: "https://xaman.app",
 };
 
 interface Props {
@@ -66,6 +67,7 @@ export function WalletPicker({
   const connecting = connect.status === "loading";
   const funding = fund.status === "loading";
   const anyMissing = available !== null && adapters.some((a) => !available[a.id]);
+  const approving = connecting && !!selected?.setPromptHandler;
 
   const pill = session ? (
     <StatusPill tone="success">Connected</StatusPill>
@@ -111,9 +113,19 @@ export function WalletPicker({
                   <span className="badges">
                     {a.capabilities.signOnly && <em>sign-only</em>}
                     {a.capabilities.submit && <em>submit</em>}
-                    {!ok && <em className="off">not installed</em>}
+                    {!ok && <em className="off">{a.unavailableReason ?? "not installed"}</em>}
                   </span>
                 </button>
+                {!ok && a.unavailableReason && (
+                  <p className="muted wallet-hint">
+                    {a.name} needs the signing backend. Run <code>docker compose up</code> or{" "}
+                    <code>npm run dev</code> in <code>server/</code>, then{" "}
+                    <button type="button" className="linklike" onClick={onRecheck}>
+                      check again
+                    </button>
+                    .
+                  </p>
+                )}
                 {!ok && INSTALL_URLS[a.id] && (
                   <a
                     className="install-link"
@@ -121,7 +133,7 @@ export function WalletPicker({
                     target="_blank"
                     rel="noreferrer"
                   >
-                    Install {a.name}
+                    {a.unavailableReason ? `Get the ${a.name} app` : `Install ${a.name}`}
                   </a>
                 )}
               </div>
@@ -185,8 +197,10 @@ export function WalletPicker({
 
       {connecting && (
         <p className="muted" role="status">
-          Approve the request in the {selected?.name} popup. Cancel stops
-          waiting and ignores the result.
+          {approving
+            ? `Scan the QR code with ${selected?.name} to approve.`
+            : `Approve the request in the ${selected?.name} popup.`}{" "}
+          Cancel stops waiting and ignores the result.
         </p>
       )}
 

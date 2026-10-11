@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { ADAPTERS } from "./wallets";
+import type { WalletPrompt } from "./wallets";
 import { useAction } from "./hooks/useAction";
 import { NETWORKS } from "./lib/networks";
 import type { NetworkId } from "./lib/networks";
@@ -16,6 +17,7 @@ import type { TxJson } from "./lib/tx";
 import { NetworkBar } from "./components/NetworkBar";
 import { WalletPicker } from "./components/WalletPicker";
 import { TxEditor } from "./components/TxEditor";
+import { QrPrompt } from "./components/QrPrompt";
 import { SignedOutput, resultCode } from "./components/SignedOutput";
 import { Alert, SkeletonBlock, Steps, stepsAt } from "./components/ui";
 
@@ -42,8 +44,19 @@ export default function App() {
   // Extensions inject late, so we re-check shortly after load.
   const [lateAvailable, setLateAvailable] = useState<Record<string, boolean> | null>(null);
 
+  const [prompt, setPrompt] = useState<WalletPrompt | null>(null);
+
   const network = NETWORKS[networkId];
   const adapter = ADAPTERS.find((a) => a.id === adapterId);
+
+  // Wallets that need an out-of-band approval (QR) report it through this channel.
+  useEffect(() => {
+    adapter?.setPromptHandler?.(setPrompt);
+    return () => {
+      adapter?.setPromptHandler?.(null);
+      setPrompt(null);
+    };
+  }, [adapter]);
 
   const checkAvail = useAction(readAvailability);
   const available = lateAvailable ?? checkAvail.data ?? null;
@@ -60,7 +73,7 @@ export default function App() {
   // (reset) an action also discards a late result from the wallet.
   const connect = useAction(async () => {
     if (!adapter) throw new Error("Pick a wallet first.");
-    return adapter.connect();
+    return adapter.connect({ network: networkId });
   });
   const session = connect.status === "success" ? (connect.data ?? null) : null;
 
@@ -79,7 +92,7 @@ export default function App() {
     const tx = parseTx(txText, session.address);
     const filled = await autofillTx(network, tx);
     setSignPhase("wallet");
-    const blob = await adapter.signTransaction(filled);
+    const blob = await adapter.signTransaction(filled, { network: networkId });
     return { blob, filled };
   });
   const signed = sign.status === "success" ? (sign.data ?? null) : null;
@@ -90,8 +103,17 @@ export default function App() {
   });
   const submitW = useAction(async () => {
     if (!signed || !adapter?.submitTransaction) throw new Error("Sign a transaction first.");
-    return adapter.submitTransaction(signed.filled);
+    return adapter.submitTransaction(signed.filled, { network: networkId });
   });
+
+  // Stops waiting on the wallet (and withdraws its request) without dropping a finished connection.
+  const cancelPending = () => {
+    adapter?.cancel?.();
+    setPrompt(null);
+    if (connect.status === "loading") connect.reset();
+    if (sign.status === "loading") sign.reset();
+    if (submitW.status === "loading") submitW.reset();
+  };
 
   const clearOutput = () => {
     sign.reset();
@@ -210,7 +232,7 @@ export default function App() {
         disconnecting={disconnect.status === "loading"}
         onSelect={selectAdapter}
         onConnect={() => void connect.run()}
-        onCancelConnect={connect.reset}
+        onCancelConnect={cancelPending}
         onDisconnect={() => void disconnectNow()}
         onFund={() => void fund.run()}
         onRecheck={recheck}
@@ -229,7 +251,7 @@ export default function App() {
         }
         onChange={changeTx}
         onSign={() => void sign.run()}
-        onCancel={sign.reset}
+        onCancel={cancelPending}
       />
 
       {signError && (
@@ -262,6 +284,9 @@ export default function App() {
           onSubmitXrplJs={() => void submitX.run()}
           onSubmitWallet={() => void submitW.run()}
         />
+      )}
+      {prompt && adapter && (
+        <QrPrompt prompt={prompt} walletName={adapter.name} onCancel={cancelPending} />
       )}
     </main>
   );
