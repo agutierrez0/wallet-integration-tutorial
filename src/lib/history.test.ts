@@ -348,9 +348,10 @@ describe("createHistoryStore", () => {
 
 describe("explorerUrl", () => {
   it("builds the explorer link per network", () => {
-    expect(explorerUrl("testnet", "ABC")).toBe("https://testnet.xrpl.org/transactions/ABC");
-    expect(explorerUrl("devnet", "ABC")).toBe("https://devnet.xrpl.org/transactions/ABC");
-    expect(explorerUrl("mainnet", "ABC")).toBe("https://livenet.xrpl.org/transactions/ABC");
+    const h = "A".repeat(64);
+    expect(explorerUrl("testnet", h)).toBe(`https://testnet.xrpl.org/transactions/${h}`);
+    expect(explorerUrl("devnet", h)).toBe(`https://devnet.xrpl.org/transactions/${h}`);
+    expect(explorerUrl("mainnet", h)).toBe(`https://livenet.xrpl.org/transactions/${h}`);
   });
 });
 
@@ -429,6 +430,8 @@ describe("summarizeTx", () => {
   });
 });
 
+const HASH = "A".repeat(64);
+
 describe("lookupTx", () => {
   const mockClient = (request: (req: unknown) => Promise<unknown>) =>
     vi.mocked(withClient).mockImplementation(((_net: unknown, fn: (c: unknown) => unknown) =>
@@ -439,17 +442,17 @@ describe("lookupTx", () => {
       result: { validated: true, meta: { TransactionResult: "tesSUCCESS" } },
     });
     mockClient(request);
-    await expect(lookupTx("testnet", "ABC")).resolves.toEqual({
+    await expect(lookupTx("testnet", HASH)).resolves.toEqual({
       found: true,
       validated: true,
       engineResult: "tesSUCCESS",
     });
-    expect(request).toHaveBeenCalledWith({ command: "tx", transaction: "ABC" });
+    expect(request).toHaveBeenCalledWith({ command: "tx", transaction: HASH });
   });
 
   it("reports not validated when the ledger hasn't closed yet", async () => {
     mockClient(vi.fn().mockResolvedValue({ result: { meta: { TransactionResult: "tesSUCCESS" } } }));
-    await expect(lookupTx("devnet", "ABC")).resolves.toMatchObject({
+    await expect(lookupTx("devnet", HASH)).resolves.toMatchObject({
       found: true,
       validated: false,
     });
@@ -457,13 +460,143 @@ describe("lookupTx", () => {
 
   it("treats txnNotFound as found:false (via data.error or message)", async () => {
     mockClient(vi.fn().mockRejectedValue(Object.assign(new Error("x"), { data: { error: "txnNotFound" } })));
-    await expect(lookupTx("testnet", "ABC")).resolves.toEqual({ found: false });
+    await expect(lookupTx("testnet", HASH)).resolves.toEqual({ found: false });
     mockClient(vi.fn().mockRejectedValue(new Error("RippledError: txnNotFound")));
-    await expect(lookupTx("testnet", "ABC")).resolves.toEqual({ found: false });
+    await expect(lookupTx("testnet", HASH)).resolves.toEqual({ found: false });
   });
 
   it("rethrows other errors", async () => {
     mockClient(vi.fn().mockRejectedValue(new Error("connection lost")));
-    await expect(lookupTx("testnet", "ABC")).rejects.toThrow("connection lost");
+    await expect(lookupTx("testnet", HASH)).rejects.toThrow("connection lost");
+  });
+});
+
+
+describe("tampered storage", () => {
+  it("drops rows whose network is an inherited object key", () => {
+    seed(storage, [
+      entry(1, { network: "constructor" as never }),
+      entry(2, { network: "__proto__" as never }),
+      entry(3, { network: "toString" as never }),
+      entry(4),
+    ]);
+    expect(loadHistory(storage).map((e) => e.id)).toEqual(["id-4"]);
+  });
+
+  it("drops rows whose hash is not 64 hex characters", () => {
+    seed(storage, [
+      entry(1, { hash: "ABC" }),
+      entry(2, { hash: `../../${"A".repeat(58)}` }),
+      entry(3, { hash: `${"A".repeat(64)}?evil=1` }),
+      entry(4, { hash: 7 as never }),
+      entry(5),
+    ]);
+    expect(loadHistory(storage).map((e) => e.id)).toEqual(["id-5"]);
+  });
+
+  it("normalizes a lowercase hash to uppercase", () => {
+    seed(storage, [entry(1, { hash: "ab".repeat(32) })]);
+    expect(loadHistory(storage)[0].hash).toBe("AB".repeat(32));
+  });
+
+  it("de-dupes rows that differ only by hash case", () => {
+    seed(storage, [entry(1, { hash: "ab".repeat(32) }), entry(2, { hash: "AB".repeat(32) })]);
+    expect(loadHistory(storage)).toHaveLength(1);
+  });
+
+  it("sanitizes previousHashes and ignores non-arrays", () => {
+    const good = "C".repeat(64);
+    seed(storage, [
+      entry(1, { previousHashes: [good, "junk", good.toLowerCase(), entry(1).hash, 5 as never] }),
+      entry(2, { previousHashes: "nope" as never }),
+    ]);
+    const rows = loadHistory(storage);
+    expect(rows.find((r) => r.id === "id-1")?.previousHashes).toEqual([good]);
+    expect(rows.find((r) => r.id === "id-2")?.previousHashes).toBeUndefined();
+  });
+
+  it("does not let a stored __proto__ key pollute anything", () => {
+    storage.setItem(
+      HISTORY_KEY,
+      `[{"id":"x","createdAt":1,"network":"testnet","walletId":"w","account":"a","txType":"T",` +
+        `"tx":{"__proto__":{"polluted":true}},"hash":"${"A".repeat(64)}","status":"signed"}]`,
+    );
+    loadHistory(storage);
+    expect(({} as Record<string, unknown>).polluted).toBeUndefined();
+  });
+
+  it("addEntry refuses an invalid hash or network", () => {
+    addEntry(entry(1, { hash: "nope" }), storage);
+    addEntry(entry(2, { network: "constructor" as never }), storage);
+    expect(loadHistory(storage)).toEqual([]);
+  });
+});
+
+describe("explorerUrl and lookupTx with bad input", () => {
+  it("explorerUrl gives an inert link for a bad hash or network", () => {
+    expect(explorerUrl("testnet", "../etc/passwd")).toBe("#");
+    expect(explorerUrl("constructor" as never, "A".repeat(64))).toBe("#");
+  });
+
+  it("explorerUrl uppercases a valid hash", () => {
+    expect(explorerUrl("testnet", "ab".repeat(32))).toBe(
+      `https://testnet.xrpl.org/transactions/${"AB".repeat(32)}`,
+    );
+  });
+
+  it("lookupTx rejects before connecting when the hash or network is bad", async () => {
+    vi.mocked(withClient).mockClear();
+    await expect(lookupTx("testnet", "nope")).rejects.toThrow(/64 hex/);
+    await expect(lookupTx("constructor" as never, "A".repeat(64))).rejects.toThrow(/Unknown network/);
+    expect(withClient).not.toHaveBeenCalled();
+  });
+});
+
+describe("re-keyed rows", () => {
+  const OLD = "A".repeat(64);
+  const NEW = "B".repeat(64);
+
+  it("updateEntry with a new hash re-keys the row and remembers the old one", () => {
+    addEntry(entry(1, { hash: OLD }), storage);
+    updateEntry("id-1", { hash: NEW, status: "submitted" }, storage);
+    const [row] = loadHistory(storage);
+    expect(row.hash).toBe(NEW);
+    expect(row.previousHashes).toEqual([OLD]);
+    expect(row.status).toBe("submitted");
+  });
+
+  it("re-signing the old blob updates the same row instead of adding a duplicate", () => {
+    addEntry(entry(1, { hash: OLD }), storage);
+    updateEntry("id-1", { hash: NEW, status: "submitted", engineResult: "tesSUCCESS" }, storage);
+    addEntry(entry(2, { hash: OLD }), storage);
+    const rows = loadHistory(storage);
+    expect(rows).toHaveLength(1);
+    expect(rows[0].id).toBe("id-1");
+    expect(rows[0].hash).toBe(NEW);
+    expect(rows[0].status).toBe("submitted"); // not downgraded to signed
+    expect(rows[0].engineResult).toBe("tesSUCCESS");
+  });
+
+  it("an invalid hash in an update patch is ignored", () => {
+    addEntry(entry(1, { hash: OLD }), storage);
+    updateEntry("id-1", { hash: "garbage", status: "failed" }, storage);
+    const [row] = loadHistory(storage);
+    expect(row.hash).toBe(OLD);
+    expect(row.status).toBe("failed");
+  });
+
+  it("re-keying onto a hash another row already has does not leave two rows with it", () => {
+    addEntry(entry(1, { hash: OLD }), storage);
+    addEntry(entry(2, { hash: NEW }), storage);
+    updateEntry("id-1", { hash: NEW }, storage);
+    const rows = loadHistory(storage);
+    expect(rows.filter((r) => r.hash === NEW)).toHaveLength(1);
+    expect(rows.map((r) => r.id)).toEqual(["id-1"]);
+  });
+
+  it("caller-supplied previousHashes in a patch cannot overwrite the recorded ones", () => {
+    addEntry(entry(1, { hash: OLD }), storage);
+    updateEntry("id-1", { hash: NEW, previousHashes: ["C".repeat(64)] }, storage);
+    expect(loadHistory(storage)[0].previousHashes).toEqual([OLD]);
   });
 });

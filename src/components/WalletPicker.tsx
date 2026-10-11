@@ -1,5 +1,5 @@
 import type { UseAction } from "../hooks/useAction";
-import { toUserError } from "../lib/errors";
+import { isCancelled, toUserError } from "../lib/errors";
 import type { WalletAdapter, WalletSession } from "../wallets/types";
 import { ActionButton, Alert, Skeleton, StatusPill } from "./ui";
 
@@ -73,7 +73,7 @@ export function WalletPicker({
     <StatusPill tone="success">Connected</StatusPill>
   ) : connecting ? (
     <StatusPill tone="pending">Connecting…</StatusPill>
-  ) : connect.status === "error" ? (
+  ) : connect.status === "error" && !isCancelled(connect.error) ? (
     <StatusPill tone="error">Connection failed</StatusPill>
   ) : (
     <StatusPill>Not connected</StatusPill>
@@ -82,7 +82,7 @@ export function WalletPicker({
   return (
     <section className="card">
       <div className="card-head">
-        <h2>2. Wallet</h2>
+        <h2>Connect a wallet</h2>
         {pill}
       </div>
 
@@ -204,7 +204,12 @@ export function WalletPicker({
         </p>
       )}
 
-      {connect.status === "error" && (
+      {connect.status === "error" && isCancelled(connect.error) && (
+        <p className="muted" role="status">
+          Cancelled. Nothing was connected.
+        </p>
+      )}
+      {connect.status === "error" && !isCancelled(connect.error) && (
         <Alert
           error={toUserError(connect.error)}
           onRetry={onConnect}

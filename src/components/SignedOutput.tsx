@@ -1,10 +1,12 @@
-import { useMemo } from "react";
-import type { UseAction } from "../hooks/useAction";
-import { toUserError } from "../lib/errors";
+import { useMemo, useState } from "react";
+import type { ActionStatus, UseAction } from "../hooks/useAction";
+import { isCancelled, toUserError } from "../lib/errors";
+import type { LookupResult } from "../lib/history";
 import type { Network } from "../lib/networks";
 import { resultCode } from "../lib/historyEntries";
 import { explainResult } from "../lib/resultCodes";
 import {
+  compareSignedToBuilt,
   curlFor,
   decodeBlob,
   hashOfBlob,
@@ -25,8 +27,12 @@ interface Props {
   canWalletSubmit: boolean;
   submitX: UseAction<[], unknown>;
   submitW: UseAction<[], string | undefined>;
+  // Result lookup that runs after a wallet-side submit (or an xrpl.js submit that threw).
+  lookup?: { status: ActionStatus; result?: LookupResult };
   onSubmitXrplJs: () => void;
   onSubmitWallet: () => void;
+  // Stops waiting on the wallet's submit through the app-wide cancel (adapter + prompt).
+  onCancelWallet: () => void;
 }
 
 const pretty = (v: unknown) => JSON.stringify(v, null, 2);
@@ -132,8 +138,10 @@ export function SignedOutput({
   canWalletSubmit,
   submitX,
   submitW,
+  lookup,
   onSubmitXrplJs,
   onSubmitWallet,
+  onCancelWallet,
 }: Props) {
   const derived = useMemo(() => {
     const hash = hashOfBlob(blob);
@@ -145,6 +153,12 @@ export function SignedOutput({
       lookup: rpcTxBody(hash),
     };
   }, [blob]);
+
+  // Compare what the wallet signed with what we asked it to sign. A wallet, extension or
+  // backend that changed the transaction (or signed with another key) must not go unnoticed.
+  const comparison = useMemo(() => compareSignedToBuilt(filled, blob), [filled, blob]);
+  const [allowMismatch, setAllowMismatch] = useState(false);
+  const blocked = !comparison.ok && !allowMismatch;
 
   const xLoading = submitX.status === "loading";
   const wLoading = submitW.status === "loading";
@@ -171,7 +185,7 @@ export function SignedOutput({
 
   return (
     <section className="card">
-      <h2>4. Signed output</h2>
+      <h2>Signed output</h2>
       {derived.valid ? (
         <StatusPill tone="success">Signature verifies</StatusPill>
       ) : (
@@ -181,11 +195,49 @@ export function SignedOutput({
           message="This may not be a fully signed transaction. Some wallets return a different format, so check the decoded blob below before submitting."
         />
       )}
+      {!comparison.ok && (
+        <Alert
+          variant="error"
+          title="The signed transaction doesn't match what you built"
+          message={
+            <>
+              {comparison.decodeError && (
+                <p className="result-line">Couldn't decode the blob: {comparison.decodeError}</p>
+              )}
+              {comparison.mismatches.length > 0 && (
+                <ul className="mismatch-list">
+                  {comparison.mismatches.map((m) => (
+                    <li key={m.field}>
+                      <strong>{m.field}</strong>: built <code>{JSON.stringify(m.built) ?? "(none)"}</code>
+                      , signed <code>{JSON.stringify(m.signed) ?? "(none)"}</code>
+                    </li>
+                  ))}
+                </ul>
+              )}
+              {comparison.signerMismatch && (
+                <p className="result-line">
+                  The signing key belongs to <code>{comparison.signerMismatch.derived}</code>, not{" "}
+                  <code>{comparison.signerMismatch.account}</code>. That is normal for a regular
+                  key or multi-signing, but otherwise another account signed this.
+                </p>
+              )}
+              <label className="check">
+                <input
+                  type="checkbox"
+                  checked={allowMismatch}
+                  onChange={(e) => setAllowMismatch(e.target.checked)}
+                />
+                I've checked the differences. Submit anyway.
+              </label>
+            </>
+          }
+        />
+      )}
       <CopyBlock label="tx_blob" value={blob} />
       <CopyBlock label="Hash (computed locally)" value={derived.hash} />
 
       <details>
-        <summary>Autofilled transaction</summary>
+        <summary>Transaction sent to the wallet</summary>
         <pre>{pretty(filled)}</pre>
       </details>
       <details>
@@ -206,7 +258,7 @@ export function SignedOutput({
         <ActionButton
           loading={xLoading}
           loadingLabel="Submitting and waiting for validation…"
-          disabled={wLoading || submitted}
+          disabled={wLoading || submitted || blocked}
           onClick={onSubmitXrplJs}
         >
           Submit with xrpl.js
@@ -216,14 +268,14 @@ export function SignedOutput({
             variant="secondary"
             loading={wLoading}
             loadingLabel={`Waiting for approval in ${walletName}…`}
-            disabled={xLoading || submitted}
+            disabled={xLoading || submitted || blocked}
             onClick={onSubmitWallet}
           >
             Submit via wallet
           </ActionButton>
         )}
         {wLoading && (
-          <ActionButton variant="ghost" onClick={submitW.reset}>
+          <ActionButton variant="ghost" onClick={onCancelWallet}>
             Cancel
           </ActionButton>
         )}
@@ -231,7 +283,9 @@ export function SignedOutput({
       <p className="muted">
         {submitted
           ? "Already submitted. Edit the transaction or sign again to send another."
-          : "Nothing is submitted until you press one of these."}
+          : blocked
+            ? "Submitting is blocked until you review the differences above."
+            : "Nothing is submitted until you press one of these."}
       </p>
 
       {xLoading && (
@@ -254,38 +308,69 @@ export function SignedOutput({
           />
         )}
         {submitW.status === "success" && walletHash && (
-          <Alert
-            variant="success"
-            title={`Sent through ${walletName}`}
-            message={
-              <>
-                <p className="result-line">
-                  The wallet submitted it. Its final result isn't shown here, so
-                  confirm it on the explorer.
-                </p>
-                <p className="result-line">
-                  <code>{walletHash}</code>
-                </p>
-                <a
-                  href={`${network.explorer}/transactions/${walletHash}`}
-                  target="_blank"
-                  rel="noreferrer"
-                >
-                  View on explorer
-                </a>
-              </>
-            }
-          />
+          <>
+            {lookup?.status === "loading" && (
+              <SkeletonBlock lines={2} label="Submitted. Checking the ledger for the result…" />
+            )}
+            {lookup?.result?.found ? (
+              <ResultCard
+                code={lookup.result.engineResult}
+                validated={lookup.result.validated}
+                hash={walletHash}
+                explorerUrl={`${network.explorer}/transactions/${walletHash}`}
+              />
+            ) : (
+              lookup?.status !== "loading" && (
+                <Alert
+                  variant="success"
+                  title={`Sent through ${walletName}`}
+                  message={
+                    <>
+                      <p className="result-line">
+                        The wallet submitted it.{" "}
+                        {lookup?.status === "success"
+                          ? "It hasn't shown up on the ledger yet, so check the explorer or use Check on-chain in history."
+                          : "Confirm the result on the explorer."}
+                      </p>
+                      <p className="result-line">
+                        <code>{walletHash}</code>
+                      </p>
+                      <a
+                        href={`${network.explorer}/transactions/${walletHash}`}
+                        target="_blank"
+                        rel="noreferrer"
+                      >
+                        View on explorer
+                      </a>
+                    </>
+                  }
+                />
+              )
+            )}
+          </>
         )}
       </div>
       {submitX.status === "error" && (
-        <Alert
-          error={toUserError(submitX.error)}
-          onRetry={onSubmitXrplJs}
-          onDismiss={submitX.reset}
-        />
+        <>
+          <Alert
+            error={toUserError(submitX.error)}
+            onRetry={lookup?.result?.found ? undefined : onSubmitXrplJs}
+            onDismiss={submitX.reset}
+          />
+          {lookup?.status === "loading" && (
+            <SkeletonBlock lines={2} label="Checking whether it reached the ledger anyway…" />
+          )}
+          {lookup?.result?.found && (
+            <ResultCard
+              code={lookup.result.engineResult}
+              validated={lookup.result.validated}
+              hash={derived.hash}
+              explorerUrl={`${network.explorer}/transactions/${derived.hash}`}
+            />
+          )}
+        </>
       )}
-      {submitW.status === "error" && (
+      {submitW.status === "error" && !isCancelled(submitW.error) && (
         <Alert
           error={toUserError(submitW.error)}
           onRetry={onSubmitWallet}

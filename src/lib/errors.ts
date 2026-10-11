@@ -50,6 +50,14 @@ function walletError(e: WalletError): UserError {
         hint: "Unlock your wallet and make sure an account is selected, then try again.",
         retryable: true,
       };
+    case "CANCELLED":
+      return {
+        kind: "wallet",
+        title: "Cancelled",
+        message: "You stopped waiting for the wallet.",
+        hint: "Nothing was recorded as failed. Try again whenever you're ready.",
+        retryable: true,
+      };
     case "UNSUPPORTED":
       return {
         kind: "wallet",
@@ -66,6 +74,11 @@ function walletError(e: WalletError): UserError {
         retryable: true,
       };
   }
+}
+
+// A cancel is the user's own choice: callers show it quietly instead of as an error alert.
+export function isCancelled(e: unknown): boolean {
+  return e instanceof WalletError && e.code === "CANCELLED";
 }
 
 function rippledCode(e: RippledError): string | undefined {

@@ -98,9 +98,10 @@ export function TypeSelector({ schemas, categories, value, onSelect, disabled }:
     setActiveIndex(0);
   }, [query, category]);
 
-  // A parent clearing the value re-opens the picker.
+  // Follow the controlled value: setting it from outside (e.g. restoring from history)
+  // collapses the picker to the chip, clearing it re-opens the picker.
   useEffect(() => {
-    if (!value) setOpen(true);
+    setOpen(!value);
   }, [value]);
 
   // Focus the search field once the expanded region is no longer inert.
@@ -126,6 +127,7 @@ export function TypeSelector({ schemas, categories, value, onSelect, disabled }:
     if (disabled) return;
     const onKey = (e: globalThis.KeyboardEvent) => {
       if (e.key !== "/" || e.metaKey || e.ctrlKey || e.altKey || isTypingTarget(e.target)) return;
+      if (document.documentElement.dataset.modalOpen) return; // a modal (e.g. the QR prompt) owns the keyboard
       e.preventDefault();
       if (open) inputRef.current?.focus();
       else expand();
@@ -238,6 +240,8 @@ export function TypeSelector({ schemas, categories, value, onSelect, disabled }:
                 ref={changeRef}
                 type="button"
                 className="ts-change"
+                aria-expanded={open}
+                aria-controls={listId}
                 disabled={disabled}
                 onClick={expand}
               >
@@ -261,7 +265,7 @@ export function TypeSelector({ schemas, categories, value, onSelect, disabled }:
                 type="text"
                 role="combobox"
                 aria-label="Search transaction types"
-                aria-expanded="true"
+                aria-expanded={open}
                 aria-controls={listId}
                 aria-autocomplete="list"
                 aria-activedescendant={activeSchema ? optionId(activeSchema.type) : undefined}

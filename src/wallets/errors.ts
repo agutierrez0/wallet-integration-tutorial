@@ -1,6 +1,7 @@
 export type WalletErrorCode =
   | "NOT_INSTALLED" // extension or device not found
   | "REJECTED" // user declined in the wallet
+  | "CANCELLED" // the app stopped waiting (user pressed Cancel, or a newer request replaced it)
   | "EXPIRED" // request timed out in the wallet
   | "LOCKED" // wallet is locked or no account selected
   | "UNSUPPORTED" // wallet cannot do this (e.g. submit)

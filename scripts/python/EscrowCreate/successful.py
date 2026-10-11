@@ -18,7 +18,7 @@ wallet2 = generate_faucet_wallet(client, debug=True)
 print("WALLET: ", wallet1)
 print("WALLET: ", wallet2)
 
-# Both balances should be zero since nothing has been sent yet
+# Faucet wallets start funded; these are the balances before the escrow is created
 print("Balances of wallets before Escrow tx was created:")
 print(get_balance(wallet1.address, client))
 print(get_balance(wallet2.address, client))

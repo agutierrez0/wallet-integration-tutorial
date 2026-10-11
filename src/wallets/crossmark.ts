@@ -1,9 +1,23 @@
-import sdk from "@crossmarkio/sdk";
 import { WalletError } from "./errors";
-import type { WalletAdapter } from "./types";
+import { probeWithTimeout, runPrompt, throwIfAborted } from "./prompt";
+import type { WalletAdapter, WalletContext } from "./types";
 
-const PROMPT_TIMEOUT_MS = 120_000;
-const PROBE_TIMEOUT_MS = 3_000;
+const NAME = "Crossmark";
+
+type Sdk = typeof import("@crossmarkio/sdk").default;
+
+// The SDK is only fetched when the wallet is first probed or used, keeping it out of the main chunk.
+let sdkPromise: Promise<Sdk> | undefined;
+function loadSdk(): Promise<Sdk> {
+  sdkPromise ??= import("@crossmarkio/sdk").then(
+    (m) => m.default,
+    (err) => {
+      sdkPromise = undefined; // allow a retry after a failed chunk load
+      throw err;
+    },
+  );
+  return sdkPromise;
+}
 
 // The SDK types its responses as `any`, so describe only what we read.
 interface CrossmarkStatus {
@@ -25,18 +39,20 @@ interface SignResult {
   response: { data: { txBlob?: string; meta?: CrossmarkStatus } };
 }
 
-function installed(): boolean {
+async function installed(): Promise<boolean> {
   try {
+    const sdk = await loadSdk();
     return Boolean(sdk.sync.isInstalled?.());
   } catch {
     return false;
   }
 }
 
-function assertInstalled() {
-  if (!installed()) {
+async function requireSdk(): Promise<Sdk> {
+  if (!(await probeWithTimeout(installed))) {
     throw new WalletError("NOT_INSTALLED", "Crossmark was not found. Install the extension and reload.");
   }
+  return loadSdk();
 }
 
 function assertOk(meta: CrossmarkStatus | undefined, action: string) {
@@ -45,68 +61,60 @@ function assertOk(meta: CrossmarkStatus | undefined, action: string) {
   if (meta?.isError) throw new WalletError("UNKNOWN", `Crossmark: ${action} failed`);
 }
 
-// Wallet prompts wait on a human, so bound them; anything unexpected becomes UNKNOWN.
-async function prompt<T>(action: string, run: () => Promise<T>): Promise<T> {
-  let timer: ReturnType<typeof setTimeout> | undefined;
-  const timeout = new Promise<never>((_, reject) => {
-    timer = setTimeout(
-      () => reject(new WalletError("EXPIRED", `Crossmark: ${action} timed out waiting for approval`)),
-      PROMPT_TIMEOUT_MS,
-    );
-  });
-  try {
-    return await Promise.race([run(), timeout]);
-  } catch (err) {
-    if (err instanceof WalletError) throw err;
-    throw new WalletError("UNKNOWN", `Crossmark: ${action} failed`, { cause: err });
-  } finally {
-    clearTimeout(timer);
-  }
-}
-
 export const crossmark: WalletAdapter = {
   id: "crossmark",
-  name: "Crossmark",
+  name: NAME,
   capabilities: { signOnly: true, submit: false },
 
-  async isAvailable() {
-    // Bounded in case the extension injects late or the check never settles.
-    return Promise.race([
-      Promise.resolve(installed()),
-      new Promise<boolean>((resolve) => setTimeout(() => resolve(false), PROBE_TIMEOUT_MS)),
-    ]);
+  isAvailable() {
+    return probeWithTimeout(installed);
   },
 
-  async connect() {
-    assertInstalled();
-    return prompt("sign-in", async () => {
-      const res = (await sdk.methods.signInAndWait()) as unknown as SignInResult;
-      const data = res?.response?.data;
-      assertOk(data?.meta, "sign-in");
-      if (!data?.address) {
-        throw new WalletError("LOCKED", "Crossmark returned no account. Unlock it and select an account.");
-      }
-      return {
-        address: data.address,
-        publicKey: data.publicKey,
-        networkHint: data.network?.label ?? data.network?.rpc,
-      };
+  async connect(ctx?: WalletContext) {
+    throwIfAborted(NAME, ctx?.signal);
+    const sdk = await requireSdk();
+    return runPrompt({
+      wallet: NAME,
+      action: "sign-in",
+      signal: ctx?.signal,
+      run: async () => {
+        const res = (await sdk.methods.signInAndWait()) as unknown as SignInResult;
+        const data = res?.response?.data;
+        assertOk(data?.meta, "sign-in");
+        if (!data?.address) {
+          throw new WalletError("LOCKED", "Crossmark returned no account. Unlock it and select an account.");
+        }
+        return {
+          address: data.address,
+          publicKey: data.publicKey,
+          networkHint: data.network?.label ?? data.network?.rpc,
+        };
+      },
     });
   },
 
-  async signTransaction(tx) {
-    assertInstalled();
-    return prompt("signing", async () => {
-      const res = (await sdk.methods.signAndWait(tx as never)) as unknown as SignResult;
-      const data = res?.response?.data;
-      assertOk(data?.meta, "signing");
-      if (!data?.txBlob) throw new WalletError("UNKNOWN", "Crossmark: no signed blob returned");
-      return data.txBlob;
+  async signTransaction(tx, ctx?: WalletContext) {
+    throwIfAborted(NAME, ctx?.signal);
+    const sdk = await requireSdk();
+    return runPrompt({
+      wallet: NAME,
+      action: "signing",
+      signal: ctx?.signal,
+      run: async () => {
+        const res = (await sdk.methods.signAndWait(tx as never)) as unknown as SignResult;
+        const data = res?.response?.data;
+        assertOk(data?.meta, "signing");
+        if (!data?.txBlob) throw new WalletError("UNKNOWN", "Crossmark: no signed blob returned");
+        return data.txBlob;
+      },
     });
   },
 
   async submitTransaction() {
-    throw new WalletError("UNSUPPORTED", "Crossmark cannot submit transactions from this app. Use xrpl.js or the JSON-RPC body instead.");
+    throw new WalletError(
+      "UNSUPPORTED",
+      "Crossmark cannot submit transactions from this app. Use xrpl.js or the JSON-RPC body instead.",
+    );
   },
 
   async disconnect() {

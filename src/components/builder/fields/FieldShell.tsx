@@ -1,5 +1,10 @@
-import { useId, type ReactNode } from "react";
+import { createContext, useContext, useId, type ReactNode } from "react";
 import type { FieldDef, FieldValue } from "../../../lib/txSchemaTypes";
+
+// TxForm provides the name of the single field whose error is announced assertively
+// (role="alert"). Other errors stay visible and linked via aria-describedby, and TxForm
+// announces their count politely in one place. Without a provider every error is an alert.
+export const AlertFieldContext = createContext<string | null | undefined>(undefined);
 
 export interface FieldProps<V extends FieldValue = FieldValue> {
   def: FieldDef;
@@ -34,6 +39,8 @@ export function FieldShell({ def, error, group, className, children }: ShellProp
   const id = `${uid}-control`;
   const helpId = `${uid}-help`;
   const errId = `${uid}-err`;
+  const alertField = useContext(AlertFieldContext);
+  const errorRole = alertField === undefined || alertField === def.name ? "alert" : undefined;
   const required = !!def.required;
   const describedBy =
     [def.help ? helpId : "", error ? errId : ""].filter(Boolean).join(" ") || undefined;
@@ -63,7 +70,7 @@ export function FieldShell({ def, error, group, className, children }: ShellProp
         </p>
       )}
       {error && (
-        <p id={errId} className="txf-error" role="alert">
+        <p id={errId} className="txf-error" role={errorRole}>
           {error}
         </p>
       )}

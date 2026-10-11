@@ -245,6 +245,9 @@
 .hp-result-ok {
   color: var(--hp-ok);
 }
+.hp-result:empty {
+  padding: 0;
+}
 
 .hp-foot {
   display: flex;

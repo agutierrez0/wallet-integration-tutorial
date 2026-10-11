@@ -1,9 +1,9 @@
 import { serve } from "@hono/node-server";
 import { XummSdk } from "xumm-sdk";
 import { createApp } from "./app.js";
-import { loadConfig } from "./config.js";
+import { loadConfig, type Config } from "./config.js";
 
-let config;
+let config: Config;
 try {
   config = loadConfig(process.env);
 } catch (err) {

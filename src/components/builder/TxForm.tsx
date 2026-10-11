@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { isFieldActive } from "../../lib/txSchemas";
 import type {
   AmountValue,
   FieldDef,
@@ -9,7 +10,9 @@ import type {
 } from "../../lib/txSchemaTypes";
 import { AddressField } from "./fields/AddressField";
 import { AmountField } from "./fields/AmountField";
-import type { FieldProps } from "./fields/FieldShell";
+import { DateTimeField } from "./fields/DateTimeField";
+import { AlertFieldContext, type FieldProps } from "./fields/FieldShell";
+import { ListField } from "./fields/ListField";
 import { SelectField } from "./fields/SelectField";
 import { TextField } from "./fields/TextField";
 import { ToggleField } from "./fields/ToggleField";
@@ -26,13 +29,14 @@ export interface TxFormProps {
   disabled?: boolean;
   // Show every error now, e.g. after the user pressed Sign with an invalid form.
   showAllErrors?: boolean;
+  // Change this to forget which fields were touched, e.g. when the same type is
+  // restored from history (schema.type alone would not change).
+  resetKey?: string | number;
 }
 
+// Same rule validation and build use, so what is shown is what is validated and built.
 export function isFieldVisible(def: FieldDef, values: FormValues): boolean {
-  const cond = def.showWhen;
-  if (!cond) return true;
-  const actual = values[cond.field];
-  return typeof cond.equals === "boolean" ? Boolean(actual) === cond.equals : actual === cond.equals;
+  return isFieldActive(def, values);
 }
 
 export function isFieldFilled(value: FieldValue): boolean {
@@ -54,6 +58,10 @@ function renderControl(def: FieldDef, props: FieldProps) {
       return <SelectField {...(props as FieldProps<string>)} />;
     case "toggle":
       return <ToggleField {...(props as FieldProps<boolean>)} />;
+    case "datetime":
+      return <DateTimeField {...(props as FieldProps<string>)} />;
+    case "list":
+      return <ListField {...(props as FieldProps<string>)} />;
     default:
       // text | hex | integer | currency
       return <TextField {...(props as FieldProps<string>)} />;
@@ -68,15 +76,16 @@ export function TxForm({
   account,
   disabled,
   showAllErrors,
+  resetKey,
 }: TxFormProps) {
   const [touched, setTouched] = useState<ReadonlySet<string>>(new Set());
   const [advancedOpen, setAdvancedOpen] = useState(false);
 
-  // A different transaction type is a different form: forget what was touched.
+  // A different transaction type (or an explicit reset) is a fresh form: forget what was touched.
   useEffect(() => {
     setTouched(new Set());
     setAdvancedOpen(false);
-  }, [schema.type]);
+  }, [schema.type, resetKey]);
 
   const visible = schema.fields.filter((f) => isFieldVisible(f, values));
   const main = visible.filter((f) => !f.advanced);
@@ -85,6 +94,12 @@ export function TxForm({
 
   const shownError = (name: string): string | undefined =>
     showAllErrors || touched.has(name) ? errors[name] : undefined;
+
+  // One error is announced assertively (the first in reading order); the rest are counted
+  // politely in a single live region so several errors don't all fire at once.
+  const shownErrorNames = [...main, ...advanced].filter((f) => !!shownError(f.name)).map((f) => f.name);
+  const alertName = shownErrorNames[0] ?? null;
+  const others = Math.max(shownErrorNames.length - 1, 0);
 
   const advancedHasError = advanced.some((f) => !!shownError(f.name));
   useEffect(() => {
@@ -109,27 +124,32 @@ export function TxForm({
   );
 
   return (
-    <fieldset className="txf" disabled={disabled}>
-      <legend className="txf-sr">{schema.label} fields</legend>
-      {main.map(renderField)}
+    <AlertFieldContext.Provider value={alertName}>
+      <fieldset className="txf" disabled={disabled}>
+        <legend className="txf-sr">{schema.label} fields</legend>
+        <div className="txf-sr" role="status" aria-live="polite">
+          {others > 0 ? `${others} more field${others === 1 ? " needs" : "s need"} attention` : ""}
+        </div>
+        {main.map(renderField)}
 
-      {advanced.length > 0 && (
-        <details
-          className="txf-advanced"
-          open={advancedOpen}
-          onToggle={(e) => setAdvancedOpen((e.currentTarget as HTMLDetailsElement).open)}
-        >
-          <summary>
-            Advanced options
-            {advancedFilled > 0 && (
-              <span className="txf-count" aria-label={`${advancedFilled} filled`}>
-                {advancedFilled}
-              </span>
-            )}
-          </summary>
-          <div className="txf-advanced-body">{advanced.map(renderField)}</div>
-        </details>
-      )}
-    </fieldset>
+        {advanced.length > 0 && (
+          <details
+            className="txf-advanced"
+            open={advancedOpen}
+            onToggle={(e) => setAdvancedOpen((e.currentTarget as HTMLDetailsElement).open)}
+          >
+            <summary>
+              Advanced options
+              {advancedFilled > 0 && (
+                <span className="txf-count" aria-label={`${advancedFilled} filled`}>
+                  {advancedFilled}
+                </span>
+              )}
+            </summary>
+            <div className="txf-advanced-body">{advanced.map(renderField)}</div>
+          </details>
+        )}
+      </fieldset>
+    </AlertFieldContext.Provider>
   );
 }

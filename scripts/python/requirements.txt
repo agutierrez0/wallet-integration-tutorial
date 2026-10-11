@@ -1,1 +1,1 @@
-xrpl-py
+xrpl-py>=4.5,<6

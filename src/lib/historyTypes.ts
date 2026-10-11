@@ -20,7 +20,10 @@ export interface HistoryEntry {
   account: string; // signer's classic address
   txType: string; // TransactionType
   tx: TxJson; // the transaction as the user built it (before autofill) so it can repopulate the form
-  hash: string; // computed locally from the signed blob
+  hash: string; // computed locally from the signed blob (64 hex chars, uppercase)
+  // Earlier hashes of this row, newest first. Set when a wallet re-signs and the row
+  // is re-keyed, so later lookups by the old hash still find the same row.
+  previousHashes?: string[];
   signedBlob?: string;
   status: HistoryStatus;
   submittedAt?: number;

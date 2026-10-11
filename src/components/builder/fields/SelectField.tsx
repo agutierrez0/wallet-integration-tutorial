@@ -22,10 +22,10 @@ export function SelectField({ def, value, onChange, onBlur, error, disabled }: F
           >
             {v === "" && (
               <option value="" disabled={required}>
-                {required ? "Select…" : "None"}
+                {required ? "Select…" : (def.placeholder ?? "None")}
               </option>
             )}
-            {!required && v !== "" && <option value="">None</option>}
+            {!required && v !== "" && <option value="">{def.placeholder ?? "None"}</option>}
             {options.map((o) => (
               <option key={o.value} value={o.value}>
                 {o.label}

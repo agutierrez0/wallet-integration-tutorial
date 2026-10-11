@@ -6,6 +6,8 @@ const apiTarget = process.env.API_PROXY_TARGET ?? "http://localhost:3001";
 
 export default defineConfig({
   plugins: [react()],
+  // The Ledger libraries need the npm `buffer` package, not the Node built-in.
+  resolve: { alias: { buffer: "buffer/" } },
   test: { exclude: ["node_modules/**", "server/**", "dist/**"] },
   server: {
     host: true,

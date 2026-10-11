@@ -6,6 +6,7 @@ import {
   type HistoryStatus,
   type SubmitVia,
 } from "./historyTypes";
+import { findEntryIndex, MAX_PREVIOUS_HASHES, normalizeHash, rekeyEntry } from "./historyEntries";
 import { NETWORKS, type NetworkId } from "./networks";
 import { withClient, type TxJson } from "./tx";
 
@@ -61,19 +62,22 @@ const isObject = (v: unknown): v is Record<string, unknown> =>
   typeof v === "object" && v !== null && !Array.isArray(v);
 const isStr = (v: unknown): v is string => typeof v === "string";
 const isNum = (v: unknown): v is number => typeof v === "number" && Number.isFinite(v);
+// `in` would accept "constructor" and "__proto__"; only own keys are real networks.
+const isNetworkId = (v: unknown): v is NetworkId => isStr(v) && Object.hasOwn(NETWORKS, v);
 
 function sanitizeEntry(raw: unknown): HistoryEntry | null {
   if (!isObject(raw)) return null;
-  const { id, createdAt, network, walletId, account, txType, tx, hash, status } = raw;
+  const { id, createdAt, network, walletId, account, txType, tx, status } = raw;
+  const hash = normalizeHash(raw.hash);
   if (
     !isStr(id) || !id ||
     !isNum(createdAt) ||
-    !isStr(network) || !(network in NETWORKS) ||
+    !isNetworkId(network) ||
     !isStr(walletId) ||
     !isStr(account) ||
     !isStr(txType) ||
     !isObject(tx) ||
-    !isStr(hash) || !hash ||
+    !hash ||
     !isStr(status) || !STATUSES.includes(status as HistoryStatus)
   ) {
     return null;
@@ -81,7 +85,7 @@ function sanitizeEntry(raw: unknown): HistoryEntry | null {
   const entry: HistoryEntry = {
     id,
     createdAt,
-    network: network as NetworkId,
+    network,
     walletId,
     account,
     txType,
@@ -89,6 +93,13 @@ function sanitizeEntry(raw: unknown): HistoryEntry | null {
     hash,
     status: status as HistoryStatus,
   };
+  if (Array.isArray(raw.previousHashes)) {
+    const previous = raw.previousHashes
+      .map(normalizeHash)
+      .filter((h, i, all): h is string => h !== null && h !== hash && all.indexOf(h) === i)
+      .slice(0, MAX_PREVIOUS_HASHES);
+    if (previous.length > 0) entry.previousHashes = previous;
+  }
   if (isStr(raw.signedBlob)) entry.signedBlob = raw.signedBlob;
   if (isNum(raw.submittedAt)) entry.submittedAt = raw.submittedAt;
   if (isStr(raw.submitVia) && SUBMIT_VIA.includes(raw.submitVia as SubmitVia)) {
@@ -148,13 +159,25 @@ export function addEntry(
   entry: HistoryEntry,
   storage: StorageLike | null = defaultStorage(),
 ): HistoryEntry[] {
+  const hash = normalizeHash(entry.hash);
+  if (!hash || !isNetworkId(entry.network)) return loadHistory(storage);
+  const incoming: HistoryEntry = { ...entry, hash };
   const current = loadHistory(storage);
-  const existing = current.find((e) => e.hash === entry.hash);
-  let next = entry;
+  // Match by current or previous hash, so re-signing the blob a wallet re-keyed away from
+  // updates the same row instead of adding a duplicate.
+  const at = findEntryIndex(current, { hash });
+  const existing = at === -1 ? undefined : current[at];
+  let next = incoming;
   if (existing) {
-    next = { ...existing, ...entry, id: existing.id };
+    next = {
+      ...existing,
+      ...incoming,
+      id: existing.id,
+      hash: existing.hash,
+      previousHashes: existing.previousHashes,
+    };
     // Signing the same blob again must not undo a recorded submission.
-    if (existing.status === "submitted" && entry.status === "signed") {
+    if (existing.status === "submitted" && incoming.status === "signed") {
       next.status = existing.status;
       next.submittedAt = existing.submittedAt;
       next.submitVia = existing.submitVia;
@@ -162,7 +185,7 @@ export function addEntry(
       next.validated = existing.validated;
     }
   }
-  const rest = current.filter((e) => e.hash !== entry.hash);
+  const rest = current.filter((_, i) => i !== at);
   return persist(storage, [next, ...rest].slice(0, HISTORY_LIMIT));
 }
 
@@ -172,11 +195,19 @@ export function updateEntry(
   storage: StorageLike | null = defaultStorage(),
 ): HistoryEntry[] {
   const current = loadHistory(storage);
-  if (!current.some((e) => e.id === id)) return current;
-  return persist(
-    storage,
-    current.map((e) => (e.id === id ? { ...e, ...patch, id } : e)),
-  );
+  const at = current.findIndex((e) => e.id === id);
+  if (at === -1) return current;
+
+  const { hash: patchHash, previousHashes: _ignored, ...rest } = patch;
+  let updated: HistoryEntry = { ...current[at], ...rest, id };
+  // A patch can re-key the row (the wallet signed again). Keep the old hash so lookups by it
+  // still work, and drop any other row that already uses the new hash.
+  if (patchHash !== undefined) updated = rekeyEntry(updated, patchHash);
+
+  const next = current
+    .map((e, i) => (i === at ? updated : e))
+    .filter((e, i) => i === at || e.hash !== updated.hash);
+  return persist(storage, next);
 }
 
 export function removeEntry(
@@ -276,8 +307,11 @@ export function createHistoryStore(options?: {
 // Display helpers
 // ---------------------------------------------------------------------------
 
+// Never throws: a bad network or hash (e.g. tampered storage) gives an inert "#" link.
 export function explorerUrl(network: NetworkId, hash: string): string {
-  return `${NETWORKS[network].explorer}/transactions/${hash}`;
+  const h = normalizeHash(hash);
+  if (!isNetworkId(network) || !h) return "#";
+  return `${NETWORKS[network].explorer}/transactions/${h}`;
 }
 
 export function formatRelativeTime(ms: number, now: number = Date.now()): string {
@@ -377,9 +411,12 @@ function isNotFound(e: unknown): boolean {
 }
 
 export async function lookupTx(network: NetworkId, hash: string): Promise<LookupResult> {
+  const h = normalizeHash(hash);
+  if (!isNetworkId(network)) throw new Error(`Unknown network: ${String(network)}`);
+  if (!h) throw new Error("That doesn't look like a transaction hash (expected 64 hex characters).");
   return withClient(NETWORKS[network], async (client) => {
     try {
-      const response = await client.request({ command: "tx", transaction: hash });
+      const response = await client.request({ command: "tx", transaction: h });
       const result = response.result as unknown as Record<string, unknown>;
       const meta = isObject(result.meta) ? result.meta : null;
       return {

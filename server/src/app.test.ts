@@ -12,6 +12,7 @@ const config: Config = {
   port: 3001,
   allowedOrigins: ["http://localhost:3000"],
   trustProxy: false,
+  allowMainnet: false,
 };
 
 function makeXaman() {
@@ -92,7 +93,7 @@ describe("POST /api/xaman/payload", () => {
     const { client, payload } = makeXaman();
     payload.create.mockResolvedValue(created);
     const txjson = { TransactionType: "AccountSet", Account: "rX" };
-    const res = await post(createApp(config, client), { txjson });
+    const res = await post(createApp(config, client), { txjson, network: "testnet" });
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body).toMatchObject({
@@ -103,7 +104,7 @@ describe("POST /api/xaman/payload", () => {
     expect(Date.parse(body.expiresAt)).toBeGreaterThan(Date.now());
     const sent = payload.create.mock.calls[0][0];
     expect(sent.txjson).toEqual(txjson);
-    expect(sent.options).toEqual({ submit: false, expire: 5 });
+    expect(sent.options).toEqual({ submit: false, expire: 5, force_network: "TESTNET" });
   });
 
   it("passes submit and maps network to force_network", async () => {
@@ -127,6 +128,7 @@ describe("POST /api/xaman/payload", () => {
     await post(createApp(config, client), {
       signIn: true,
       submit: true,
+      network: "testnet",
       txjson: { TransactionType: "Payment", Destination: "rX" },
     });
     const sent = payload.create.mock.calls[0][0];
@@ -135,11 +137,13 @@ describe("POST /api/xaman/payload", () => {
   });
 
   it.each([
-    ["missing txjson", {}],
-    ["txjson without TransactionType", { txjson: { Account: "rX" } }],
-    ["non-string TransactionType", { txjson: { TransactionType: 5 } }],
+    ["missing txjson", { network: "testnet" }],
+    ["txjson without TransactionType", { txjson: { Account: "rX" }, network: "testnet" }],
+    ["non-string TransactionType", { txjson: { TransactionType: 5 }, network: "testnet" }],
     ["unknown network", { txjson: { TransactionType: "Payment" }, network: "stagenet" }],
-    ["non-boolean submit", { txjson: { TransactionType: "Payment" }, submit: "yes" }],
+    ["missing network", { txjson: { TransactionType: "Payment" } }],
+    ["missing network on signIn", { signIn: true }],
+    ["non-boolean submit", { txjson: { TransactionType: "Payment" }, submit: "yes", network: "testnet" }],
   ])("rejects %s with 400", async (_name, body) => {
     const { client, payload } = makeXaman();
     const res = await post(createApp(config, client), body);
@@ -157,7 +161,10 @@ describe("POST /api/xaman/payload", () => {
 
   it("rejects bodies over 16kb with 413", async () => {
     const { client, payload } = makeXaman();
-    const big = { txjson: { TransactionType: "Payment", Memo: "x".repeat(17 * 1024) } };
+    const big = {
+      network: "testnet",
+      txjson: { TransactionType: "Payment", Memo: "x".repeat(17 * 1024) },
+    };
     const res = await post(createApp(config, client), big);
     expect(res.status).toBe(413);
     expect((await res.json()).error.code).toBe("BODY_TOO_LARGE");
@@ -167,7 +174,7 @@ describe("POST /api/xaman/payload", () => {
   it("returns 502 when Xaman returns nothing", async () => {
     const { client, payload } = makeXaman();
     payload.create.mockResolvedValue(null);
-    const res = await post(createApp(config, client), { signIn: true });
+    const res = await post(createApp(config, client), { signIn: true, network: "testnet" });
     expect(res.status).toBe(502);
   });
 });
@@ -245,6 +252,29 @@ describe("DELETE /api/xaman/payload/:uuid", () => {
     expect(payload.cancel).toHaveBeenCalledWith(UUID, true);
   });
 
+  it.each(["ALREADY_OPENED", "ALREADY_RESOLVED", "ALREADY_CANCELLED"])(
+    "returns 409 CANNOT_CANCEL with the reason when Xaman could not cancel (%s)",
+    async (reason) => {
+      const { client, payload } = makeXaman();
+      payload.cancel.mockResolvedValue({ result: { cancelled: false, reason } });
+      const res = await createApp(config, client).request(`/api/xaman/payload/${UUID}`, {
+        method: "DELETE",
+      });
+      expect(res.status).toBe(409);
+      expect((await res.json()).error).toMatchObject({ code: "CANNOT_CANCEL", reason });
+    },
+  );
+
+  it("never echoes an unexpected cancel reason", async () => {
+    const { client, payload } = makeXaman();
+    payload.cancel.mockResolvedValue({ result: { cancelled: false, reason: `leak ${SECRET}` } });
+    const res = await createApp(config, client).request(`/api/xaman/payload/${UUID}`, {
+      method: "DELETE",
+    });
+    expect(res.status).toBe(409);
+    expect((await res.json()).error.reason).toBe("UNKNOWN");
+  });
+
   it("validates uuid and handles missing payloads", async () => {
     const { client, payload } = makeXaman();
     const app = createApp(config, client);
@@ -264,7 +294,7 @@ describe("secrets and upstream errors", () => {
     const app = createApp(config, client);
 
     const responses = [
-      await post(app, { signIn: true }),
+      await post(app, { signIn: true, network: "testnet" }),
       await app.request(`/api/xaman/payload/${UUID}`),
       await app.request(`/api/xaman/payload/${UUID}`, { method: "DELETE" }),
     ];
@@ -283,7 +313,7 @@ describe("secrets and upstream errors", () => {
   it("keeps secrets out of successful responses too", async () => {
     const { client, payload } = makeXaman();
     payload.create.mockResolvedValue(created);
-    const res = await post(createApp(config, client), { signIn: true });
+    const res = await post(createApp(config, client), { signIn: true, network: "testnet" });
     const dump = JSON.stringify([...res.headers.entries()]) + (await res.text());
     expect(dump).not.toContain(SECRET);
     expect(dump).not.toContain(KEY);
@@ -317,32 +347,6 @@ describe("CORS, headers and rate limiting", () => {
     expect(res.headers.get("x-content-type-options")).toBe("nosniff");
     expect(res.headers.get("x-frame-options")).toBeTruthy();
   });
-
-  it("returns 429 after 60 requests per minute", async () => {
-    const { client } = makeXaman();
-    const app = createApp(config, client);
-    let last = 0;
-    for (let i = 0; i < 61; i++) {
-      last = (await app.request("/api/xaman/payload/nope")).status;
-    }
-    expect(last).toBe(429);
-  });
-
-  it("keys the limiter on X-Forwarded-For only when TRUST_PROXY is on", async () => {
-    const { client } = makeXaman();
-    const app = createApp({ ...config, trustProxy: true }, client);
-    for (let i = 0; i < 60; i++) {
-      await app.request("/api/xaman/payload/nope", { headers: { "x-forwarded-for": "1.1.1.1" } });
-    }
-    const other = await app.request("/api/xaman/payload/nope", {
-      headers: { "x-forwarded-for": "2.2.2.2" },
-    });
-    expect(other.status).toBe(400);
-    const same = await app.request("/api/xaman/payload/nope", {
-      headers: { "x-forwarded-for": "1.1.1.1" },
-    });
-    expect(same.status).toBe(429);
-  });
 });
 
 describe("loadConfig", () => {
@@ -352,7 +356,15 @@ describe("loadConfig", () => {
       port: 3001,
       allowedOrigins: ["http://localhost:3000"],
       trustProxy: false,
+      allowMainnet: false,
     });
+  });
+
+  it("parses ALLOW_MAINNET", () => {
+    const base = { XAMAN_API_KEY: "k", XAMAN_API_SECRET: "s" };
+    expect(loadConfig({ ...base, ALLOW_MAINNET: "true" }).allowMainnet).toBe(true);
+    expect(loadConfig({ ...base, ALLOW_MAINNET: "false" }).allowMainnet).toBe(false);
+    expect(() => loadConfig({ ...base, ALLOW_MAINNET: "yes" })).toThrow(/ALLOW_MAINNET/);
   });
 
   it("splits ALLOWED_ORIGIN on commas", () => {
@@ -374,5 +386,186 @@ describe("loadConfig", () => {
       expect(String(e)).toContain("PORT");
       expect(String(e)).not.toContain("super-secret-xyz");
     }
+  });
+});
+
+describe("mainnet gate", () => {
+  const mainnetBody = { txjson: { TransactionType: "Payment" }, network: "mainnet" };
+
+  it("refuses mainnet by default and never calls Xaman", async () => {
+    const { client, payload } = makeXaman();
+    const res = await post(createApp(config, client), mainnetBody);
+    expect(res.status).toBe(403);
+    expect((await res.json()).error.code).toBe("MAINNET_DISABLED");
+    expect(payload.create).not.toHaveBeenCalled();
+  });
+
+  it("refuses a mainnet SignIn too", async () => {
+    const { client, payload } = makeXaman();
+    const res = await post(createApp(config, client), { signIn: true, network: "mainnet" });
+    expect(res.status).toBe(403);
+    expect(payload.create).not.toHaveBeenCalled();
+  });
+
+  it("allows mainnet only when ALLOW_MAINNET is on, and forces MAINNET", async () => {
+    const { client, payload } = makeXaman();
+    payload.create.mockResolvedValue(created);
+    const res = await post(createApp({ ...config, allowMainnet: true }, client), mainnetBody);
+    expect(res.status).toBe(200);
+    expect(payload.create.mock.calls[0][0].options.force_network).toBe("MAINNET");
+  });
+
+  it("always forces the requested test network", async () => {
+    const { client, payload } = makeXaman();
+    payload.create.mockResolvedValue(created);
+    const app = createApp(config, client);
+    await post(app, { signIn: true, network: "devnet" });
+    expect(payload.create.mock.calls[0][0].options.force_network).toBe("DEVNET");
+  });
+});
+
+describe("origin protection (defense in depth)", () => {
+  const body = JSON.stringify({ signIn: true, network: "testnet" });
+  const send = (app: ReturnType<typeof createApp>, headers: Record<string, string>) =>
+    app.request("/api/xaman/payload", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...headers },
+      body,
+    });
+
+  it("rejects POST from a disallowed Origin before touching Xaman", async () => {
+    const { client, payload } = makeXaman();
+    const res = await send(createApp(config, client), { Origin: "https://evil.example" });
+    expect(res.status).toBe(403);
+    expect((await res.json()).error.code).toBe("FORBIDDEN_ORIGIN");
+    expect(payload.create).not.toHaveBeenCalled();
+  });
+
+  it("rejects DELETE from a disallowed Origin", async () => {
+    const { client, payload } = makeXaman();
+    const res = await createApp(config, client).request(`/api/xaman/payload/${UUID}`, {
+      method: "DELETE",
+      headers: { Origin: "https://evil.example" },
+    });
+    expect(res.status).toBe(403);
+    expect(payload.cancel).not.toHaveBeenCalled();
+  });
+
+  it("rejects Sec-Fetch-Site: cross-site when no Origin is sent", async () => {
+    const { client, payload } = makeXaman();
+    const res = await send(createApp(config, client), { "Sec-Fetch-Site": "cross-site" });
+    expect(res.status).toBe(403);
+    expect(payload.create).not.toHaveBeenCalled();
+  });
+
+  it("allows listed Origins, same-origin fetches and header-less non-browser clients", async () => {
+    const { client, payload } = makeXaman();
+    payload.create.mockResolvedValue(created);
+    const app = createApp(config, client);
+    expect((await send(app, { Origin: "http://localhost:3000" })).status).toBe(200);
+    expect((await send(app, { "Sec-Fetch-Site": "same-origin" })).status).toBe(200);
+    expect((await send(app, {})).status).toBe(200);
+  });
+
+  it("does not restrict health or GET reads", async () => {
+    const { client } = makeXaman();
+    const app = createApp(config, client);
+    const h = { Origin: "https://evil.example" };
+    expect((await app.request("/health", { headers: h })).status).toBe(200);
+    expect((await app.request("/api/health", { headers: h })).status).toBe(200);
+    expect((await app.request("/api/xaman/payload/nope", { headers: h })).status).toBe(400);
+  });
+});
+
+describe("rate limiting tiers and client identity", () => {
+  const postBody = { signIn: true, network: "testnet" };
+
+  it("allows 240 polling GETs per minute, then 429", async () => {
+    const { client } = makeXaman();
+    const app = createApp(config, client);
+    let status = 0;
+    for (let i = 0; i < 240; i++) status = (await app.request("/api/xaman/payload/nope")).status;
+    expect(status).toBe(400);
+    expect((await app.request("/api/xaman/payload/nope")).status).toBe(429);
+  });
+
+  it("limits creates to 20 per minute, independent of the polling budget", async () => {
+    const { client, payload } = makeXaman();
+    payload.create.mockResolvedValue(created);
+    const app = createApp(config, client);
+    for (let i = 0; i < 20; i++) expect((await post(app, postBody)).status).toBe(200);
+    const blocked = await post(app, postBody);
+    expect(blocked.status).toBe(429);
+    expect(blocked.headers.get("retry-after")).toBeTruthy();
+    // polling is a separate bucket and still works
+    expect((await app.request("/api/xaman/payload/nope")).status).toBe(400);
+  });
+
+  it("limits cancels to 10 per minute", async () => {
+    const { client, payload } = makeXaman();
+    payload.cancel.mockResolvedValue({ result: { cancelled: true, reason: "OK" } });
+    const app = createApp(config, client);
+    const del = () => app.request(`/api/xaman/payload/${UUID}`, { method: "DELETE" });
+    for (let i = 0; i < 10; i++) expect((await del()).status).toBe(204);
+    expect((await del()).status).toBe(429);
+  });
+
+  it("never rate limits health checks or CORS preflights", async () => {
+    const { client } = makeXaman();
+    const app = createApp(config, client);
+    for (let i = 0; i < 300; i++) {
+      expect((await app.request("/health")).status).toBe(200);
+      expect((await app.request("/api/health")).status).toBe(200);
+    }
+    for (let i = 0; i < 300; i++) {
+      const res = await app.request("/api/xaman/payload", {
+        method: "OPTIONS",
+        headers: { Origin: "http://localhost:3000", "Access-Control-Request-Method": "POST" },
+      });
+      expect(res.status).toBeLessThan(300);
+    }
+  });
+
+  it("ignores X-Forwarded-For and X-Real-IP entirely unless TRUST_PROXY is on", async () => {
+    const { client } = makeXaman();
+    const app = createApp(config, client);
+    for (let i = 0; i < 240; i++) {
+      await app.request("/api/xaman/payload/nope", { headers: { "x-forwarded-for": `9.9.9.${i}` } });
+    }
+    const res = await app.request("/api/xaman/payload/nope", {
+      headers: { "x-forwarded-for": "8.8.8.8", "x-real-ip": "7.7.7.7" },
+    });
+    expect(res.status).toBe(429);
+  });
+
+  it("with TRUST_PROXY, a spoofed left-most X-Forwarded-For cannot evade the limit", async () => {
+    const { client } = makeXaman();
+    const app = createApp({ ...config, trustProxy: true }, client);
+    // nginx appended the real hop (5.5.5.5) on the right; the client rotates fake left-most values
+    for (let i = 0; i < 240; i++) {
+      await app.request("/api/xaman/payload/nope", {
+        headers: { "x-forwarded-for": `1.2.3.${i}, 5.5.5.5` },
+      });
+    }
+    const res = await app.request("/api/xaman/payload/nope", {
+      headers: { "x-forwarded-for": "6.6.6.6, 5.5.5.5" },
+    });
+    expect(res.status).toBe(429);
+  });
+
+  it("with TRUST_PROXY, X-Real-IP wins and different real clients get separate budgets", async () => {
+    const { client } = makeXaman();
+    const app = createApp({ ...config, trustProxy: true }, client);
+    for (let i = 0; i < 240; i++) {
+      await app.request("/api/xaman/payload/nope", {
+        headers: { "x-real-ip": "5.5.5.5", "x-forwarded-for": `1.1.1.${i}` },
+      });
+    }
+    expect(
+      (await app.request("/api/xaman/payload/nope", { headers: { "x-real-ip": "5.5.5.5" } })).status,
+    ).toBe(429);
+    expect(
+      (await app.request("/api/xaman/payload/nope", { headers: { "x-real-ip": "6.6.6.6" } })).status,
+    ).toBe(400);
   });
 });

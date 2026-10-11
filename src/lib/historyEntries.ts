@@ -4,6 +4,88 @@ import type { NetworkId } from "./networks";
 import { hashOfBlob } from "./tx";
 import type { TxJson } from "./tx";
 
+// A transaction hash is 64 hex characters. Anything else is rejected before it is used in
+// a URL or a ledger lookup. Returns the uppercase form, or null.
+const HASH_RE = /^[0-9A-F]{64}$/i;
+export function normalizeHash(hash: unknown): string | null {
+  return typeof hash === "string" && HASH_RE.test(hash) ? hash.toUpperCase() : null;
+}
+
+export const MAX_PREVIOUS_HASHES = 10;
+
+export interface EntryRef {
+  id?: string;
+  hash?: string;
+  prevHash?: string;
+}
+
+// Index of the row a reference points to, or -1. Matches by id first, then by hash against
+// both the current hash and the row's previous hashes (so a re-keyed row is still found by
+// the hash it had before).
+export function findEntryIndex(
+  entries: readonly Pick<HistoryEntry, "id" | "hash" | "previousHashes">[],
+  ref: EntryRef,
+): number {
+  if (ref.id !== undefined) {
+    const byId = entries.findIndex((e) => e.id === ref.id);
+    if (byId !== -1) return byId;
+  }
+  const wanted = [ref.hash, ref.prevHash]
+    .map((h) => (h === undefined ? null : (normalizeHash(h) ?? h)))
+    .filter((h): h is string => h !== null);
+  if (wanted.length === 0) return -1;
+  return entries.findIndex(
+    (e) => wanted.includes(e.hash) || (e.previousHashes ?? []).some((p) => wanted.includes(p)),
+  );
+}
+
+// Gives a row a new hash, remembering the old one. No-op if the new hash is invalid or the same.
+export function rekeyEntry<T extends Pick<HistoryEntry, "hash" | "previousHashes">>(
+  entry: T,
+  newHash: string,
+): T {
+  const next = normalizeHash(newHash);
+  if (!next || next === entry.hash) return entry;
+  const previousHashes = [entry.hash, ...(entry.previousHashes ?? [])]
+    .filter((h, i, all) => h !== next && all.indexOf(h) === i)
+    .slice(0, MAX_PREVIOUS_HASHES);
+  return { ...entry, hash: next, previousHashes };
+}
+
+// Pulls a transaction result code (tec/tef/tem/ter/tel) out of an error thrown by xrpl.js or
+// rippled: structured fields first, then the message text. Returns undefined if none.
+const CODE_RE = /\b(?:tec|tef|tem|ter|tel)[A-Z][A-Za-z0-9_]*\b/;
+export function engineCodeFromError(e: unknown): string | undefined {
+  const seen = new Set<unknown>();
+  const visit = (v: unknown, depth: number): string | undefined => {
+    if (v === null || v === undefined || depth > 3 || seen.has(v)) return undefined;
+    if (typeof v === "string") return CODE_RE.exec(v)?.[0];
+    if (typeof v !== "object") return undefined;
+    seen.add(v);
+    const o = v as Record<string, unknown>;
+    for (const key of ["engine_result", "TransactionResult"]) {
+      const val = o[key];
+      if (typeof val === "string" && CODE_RE.test(val)) return CODE_RE.exec(val)?.[0];
+    }
+    return (
+      visit(o.data, depth + 1) ??
+      visit(o.result, depth + 1) ??
+      visit(o.meta, depth + 1) ??
+      visit(o.message, depth + 1) ??
+      visit(o.cause, depth + 1)
+    );
+  };
+  return visit(e, 0);
+}
+
+// "Check on-chain" is offered for rows we can't be sure about: signed but not known to be
+// submitted, or failed with no result (a thrown timeout can still have reached the ledger).
+export function canCheckOnChain(
+  entry: Pick<HistoryEntry, "status" | "engineResult">,
+): boolean {
+  return entry.status === "signed" || (entry.status === "failed" && !entry.engineResult);
+}
+
 // Pure helpers that turn app events (sign, submit, lookup, restore) into history
 // entries and patches. Kept free of React and storage so they are easy to test.
 
@@ -89,8 +171,15 @@ export function patchFromXrplJsSubmit(res: unknown, now: number): Patch {
 }
 
 // After "Submit with xrpl.js" threw although a signature existed.
-export function patchFromSubmitFailure(via: "xrpljs" | "wallet", now: number): Patch {
-  return { status: "failed", submitVia: via, submittedAt: now };
+// Pass engineResult when the error carried one (see engineCodeFromError).
+export function patchFromSubmitFailure(
+  via: "xrpljs" | "wallet",
+  now: number,
+  engineResult?: string,
+): Patch {
+  const patch: Patch = { status: "failed", submitVia: via, submittedAt: now };
+  if (engineResult) patch.engineResult = engineResult;
+  return patch;
 }
 
 // After the wallet submitted for us and returned a hash. If it differs from the
@@ -101,7 +190,9 @@ export function patchFromWalletSubmit(
   now: number,
 ): Patch {
   const patch: Patch = { status: "submitted", submitVia: "wallet", submittedAt: now };
-  if (returnedHash && returnedHash !== entry.hash) patch.hash = returnedHash;
+  // A wallet that returns something that isn't a hash must not re-key the row.
+  const next = normalizeHash(returnedHash);
+  if (next && next !== entry.hash) patch.hash = next;
   return patch;
 }
 
