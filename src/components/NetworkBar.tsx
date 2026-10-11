@@ -1,10 +1,15 @@
 import { NETWORKS } from "../lib/networks";
 import type { NetworkId } from "../lib/networks";
+import { Alert } from "./ui";
 
 interface Props {
   networkId: NetworkId;
   mainnetOk: boolean;
   networkHint?: string;
+  // Where the hint came from, e.g. "at sign-in" (Xaman) or "at connect".
+  hintNote?: string;
+  // Set when the wallet's network is known and differs from the selected one.
+  mismatch?: string | null;
   disabled?: boolean;
   onNetwork: (id: NetworkId) => void;
   onMainnetOk: (ok: boolean) => void;
@@ -14,13 +19,15 @@ export function NetworkBar({
   networkId,
   mainnetOk,
   networkHint,
+  hintNote,
+  mismatch,
   disabled = false,
   onNetwork,
   onMainnetOk,
 }: Props) {
   return (
     <section className="card">
-      <h2>1. Network</h2>
+      <h2>Network</h2>
       <div className="row">
         <select
           aria-label="Network"
@@ -39,9 +46,13 @@ export function NetworkBar({
           ))}
         </select>
         {networkHint && (
-          <span className="muted">Wallet reports: {networkHint}</span>
+          <span className="muted">
+            Wallet reports: {networkHint}
+            {hintNote ? ` (${hintNote})` : ""}
+          </span>
         )}
       </div>
+      {mismatch && <Alert variant="warning" title="Network mismatch" message={mismatch} />}
       <label className="check">
         <input
           type="checkbox"

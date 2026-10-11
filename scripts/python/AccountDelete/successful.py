@@ -1,3 +1,16 @@
+"""AccountDelete: DRY RUN. Builds and autofills the transaction but does not sign or submit it.
+
+A real AccountDelete will fail on a freshly funded account:
+- The account's Sequence number plus 256 must be lower than the current ledger index,
+  otherwise the ledger returns tecTOO_SOON. In practice the account has to be at least
+  256 ledgers old (a few minutes), and it must not own objects that block deletion.
+- The transaction cost is not the usual tiny fee. AccountDelete must destroy at least the
+  owner reserve (0.2 XRP when this was written; see
+  https://xrpl.org/docs/references/protocol/transactions/types/accountdelete).
+
+To run it for real, wait for the account to age past 256 ledgers, then sign the autofilled
+transaction with `sign(...)` and send it with `submit_and_wait(...)`.
+"""
 # imports from xrpl
 from xrpl.wallet import generate_faucet_wallet
 from xrpl.clients import JsonRpcClient

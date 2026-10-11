@@ -19,7 +19,9 @@ export type FieldKind =
   | "integer" // non-negative integer
   | "select"
   | "toggle"
-  | "currency"; // 3-char code or 40-hex code
+  | "currency" // 3-char code or 40-hex code
+  | "datetime" // UTC date+time, "YYYY-MM-DDTHH:mm:ss"; build() converts to Ripple epoch seconds
+  | "list"; // one entry per line (or comma separated); schema decides what an entry means
 
 export interface FieldOption {
   value: string;
@@ -49,6 +51,8 @@ export interface FieldDef {
   default?: FieldValue;
   min?: number;
   max?: number;
+  // kind "amount" only: allow an XRP amount of 0 (e.g. a free NFT sell offer).
+  allowZero?: boolean;
   // Only show/require this field while another field has the given value.
   showWhen?: { field: string; equals: string | boolean };
 }
@@ -66,7 +70,13 @@ export interface TxSchema {
   // Return null if the tx can't be represented (UI then shows "custom JSON").
   parse?(tx: TxJson): FormValues | null;
   // Cross-field checks beyond required/kind validation. Returns { fieldName: message }.
-  validate?(values: FormValues): Record<string, string>;
+  // `ctx` is optional: callers that don't know the signer simply skip the self-reference checks.
+  validate?(values: FormValues, ctx?: ValidateContext): Record<string, string>;
+}
+
+export interface ValidateContext {
+  // The signing account, when known (connected wallet).
+  account?: string;
 }
 
 export type FieldErrors = Record<string, string>;
@@ -77,7 +87,10 @@ export type FieldErrors = Record<string, string>;
  *   CATEGORIES: Category[]
  *   getSchema(type: string): TxSchema | undefined
  *   defaultValues(schema: TxSchema): FormValues
- *   validateValues(schema: TxSchema, values: FormValues): FieldErrors   // required + per-kind + schema.validate
+ *   validateValues(schema: TxSchema, values: FormValues, ctx?: ValidateContext): FieldErrors   // required + per-kind + schema.validate
+ *   isFieldActive(def: FieldDef, values: FormValues): boolean   // the ONE showWhen implementation
  *   buildTx(schema: TxSchema, values: FormValues, account: string): TxJson
- *   valuesFromTx(tx: TxJson): { schema: TxSchema; values: FormValues } | null
+ *   valuesFromTx(tx: TxJson): { schema: TxSchema; values: FormValues; dropped: string[] } | null
+ *     `dropped` lists tx keys the form ignores (Account, Fee, Sequence, LastLedgerSequence,
+ *     SigningPubKey, TxnSignature, NetworkID) so the editor can warn before they are lost.
  */

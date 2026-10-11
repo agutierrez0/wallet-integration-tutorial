@@ -20,6 +20,8 @@ services:
       - XAMAN_API_SECRET
       - ALLOWED_ORIGIN
       - TRUST_PROXY=true
+      # Unset = false: mainnet payloads are refused. Set to true only on purpose.
+      - ALLOW_MAINNET
 
 networks:
   default:

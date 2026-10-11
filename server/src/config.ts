@@ -9,6 +9,11 @@ const schema = z.object({
     .enum(["true", "false"])
     .default("false")
     .transform((v) => v === "true"),
+  // Mainnet payloads are refused unless this is explicitly enabled.
+  ALLOW_MAINNET: z
+    .enum(["true", "false"])
+    .default("false")
+    .transform((v) => v === "true"),
 });
 
 export interface Config {
@@ -17,6 +22,7 @@ export interface Config {
   port: number;
   allowedOrigins: string[];
   trustProxy: boolean;
+  allowMainnet: boolean;
 }
 
 // Fails fast with a readable message. Never echoes values, only variable names.
@@ -37,5 +43,6 @@ export function loadConfig(env: Record<string, string | undefined>): Config {
       .map((o) => o.trim())
       .filter(Boolean),
     trustProxy: e.TRUST_PROXY,
+    allowMainnet: e.ALLOW_MAINNET,
   };
 }

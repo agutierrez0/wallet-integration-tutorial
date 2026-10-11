@@ -1,39 +1,41 @@
-# imports from xrpl
-from xrpl.wallet import generate_faucet_wallet
-from xrpl.clients import JsonRpcClient
-from xrpl.transaction import autofill_and_sign, sign, autofill, submit_and_wait
-from xrpl.models import AccountDelete
-from xrpl.ledger import get_latest_validated_ledger_sequence
-from xrpl.account import get_next_valid_seq_number
+"""AccountSet: set a Domain on a freshly funded testnet account.
 
-# Create a client to connect to the test network
+Creates a faucet wallet, builds an AccountSet that sets the account's Domain,
+signs it, submits it and waits for validation.
+
+Run: python AccountSet/successful.py   (needs xrpl-py, Python 3.10+)
+"""
+from xrpl.clients import JsonRpcClient
+from xrpl.models import AccountInfo, AccountSet
+from xrpl.transaction import autofill_and_sign, submit_and_wait
+from xrpl.utils import str_to_hex
+from xrpl.wallet import generate_faucet_wallet
+
+# Connect to the testnet
 client = JsonRpcClient("https://s.altnet.rippletest.net:51234")
 
-# create originator and recipient, originator will send to recipient
-originator = generate_faucet_wallet(client)
-recipient = generate_faucet_wallet(client)
+# Faucet-funded wallet; the faucet gives it a starting XRP balance
+wallet = generate_faucet_wallet(client)
+print("wallet address:", wallet.address)
 
-# get info for the tx
-ledger_sequence = get_latest_validated_ledger_sequence(client)
+DOMAIN = "example.com"
 
-# create account delete transaction
-account_delete_tx = AccountDelete(
-    account=originator.address, 
-    destination=recipient.address,
-    last_ledger_sequence=ledger_sequence + 1000 # didn't work with autofill
+# Domain is stored on the ledger as hex
+account_set_tx = AccountSet(
+    account=wallet.address,
+    domain=str_to_hex(DOMAIN),
 )
+print("account_set_tx:", account_set_tx)
 
-print("account_delete_tx: ", account_delete_tx)
+# Fill in Fee, Sequence and LastLedgerSequence, then sign
+signed_tx = autofill_and_sign(account_set_tx, client=client, wallet=wallet)
+print("tx hash:", signed_tx.get_hash())
 
-autofilled_account_delete_tx = autofill(account_delete_tx, client=client)
-print("autofilled_account_delete_tx: ", autofilled_account_delete_tx)
+# Submit and wait until the transaction is in a validated ledger
+response = submit_and_wait(signed_tx, client=client)
+print("engine result:", response.result["meta"]["TransactionResult"])
 
-#tx_blob = sign(autofilled_account_delete_tx, wallet=originator)
-# tx_blob = autofill_and_sign(account_delete_tx, client=client, wallet=originator)
-
-#print("tx_blob: ", tx_blob)
-#print("tx_blob.blob(): ", tx_blob.blob())
-# print("tx_blob: ", tx_blob)
-# print("Whole wallet:", test_wallet.private_key)
-# print("Classic address:", test_account)
-# Classic address: rEQB2hhp3rg7sHj6L8YyR4GG47Cb7pfcuw
+# Read the Domain back from the ledger (hex)
+info = client.request(AccountInfo(account=wallet.address, ledger_index="validated"))
+account_data = info.result["account_data"]
+print("Domain on ledger (hex):", account_data.get("Domain"))

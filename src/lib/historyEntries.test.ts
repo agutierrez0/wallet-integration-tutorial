@@ -2,13 +2,18 @@ import { Wallet } from "xrpl";
 import { describe, expect, it } from "vitest";
 import {
   AUTOFILLED_FIELDS,
+  canCheckOnChain,
+  engineCodeFromError,
   entryFromSigned,
+  findEntryIndex,
   newEntryId,
+  normalizeHash,
   patchFromLookup,
   patchFromSubmitFailure,
   patchFromWalletSubmit,
   patchFromXrplJsSubmit,
   prepareRestore,
+  rekeyEntry,
   resultCode,
   restoreText,
   stripForRestore,
@@ -113,7 +118,9 @@ describe("submit patches (applied in order after signing)", () => {
 
   it("wallet submit re-keys the row to the hash the wallet returns", () => {
     const e = entry();
-    expect(patchFromWalletSubmit(e, "ABCDEF", 9).hash).toBe("ABCDEF");
+    const rekeyed = "ab".repeat(32);
+    expect(patchFromWalletSubmit(e, rekeyed, 9).hash).toBe(rekeyed.toUpperCase());
+    expect(patchFromWalletSubmit(e, "ABCDEF", 9).hash).toBeUndefined(); // not a hash
     expect(patchFromWalletSubmit(e, undefined, 9).hash).toBeUndefined();
   });
 
@@ -257,5 +264,140 @@ describe("newEntryId", () => {
   it("returns distinct non-empty ids", () => {
     expect(newEntryId()).not.toBe(newEntryId());
     expect(newEntryId().length).toBeGreaterThan(5);
+  });
+});
+
+
+const H1 = "A".repeat(64);
+const H2 = "B".repeat(64);
+const H3 = "C".repeat(64);
+
+describe("normalizeHash", () => {
+  it("accepts 64 hex chars in any case and uppercases", () => {
+    expect(normalizeHash("ab".repeat(32))).toBe("AB".repeat(32));
+    expect(normalizeHash(H1)).toBe(H1);
+  });
+
+  it("rejects everything else", () => {
+    for (const bad of ["", "ABCDEF", "G".repeat(64), `${H1}0`, H1.slice(1), " " + H1, 42, null, undefined, {}]) {
+      expect(normalizeHash(bad)).toBeNull();
+    }
+  });
+
+  it("rejects URL and path tricks", () => {
+    expect(normalizeHash(`../${H1.slice(3)}`)).toBeNull();
+    expect(normalizeHash(`${H1.slice(0, 60)}?x=1`)).toBeNull();
+  });
+});
+
+describe("findEntryIndex / rekeyEntry", () => {
+  const rows = [
+    { id: "a", hash: H1, previousHashes: undefined },
+    { id: "b", hash: H2, previousHashes: [H3] },
+  ];
+
+  it("finds by id, by hash, and by a previous hash", () => {
+    expect(findEntryIndex(rows, { id: "b" })).toBe(1);
+    expect(findEntryIndex(rows, { hash: H1 })).toBe(0);
+    expect(findEntryIndex(rows, { hash: H3 })).toBe(1);
+    expect(findEntryIndex(rows, { prevHash: H3 })).toBe(1);
+  });
+
+  it("matches case-insensitively and returns -1 when nothing matches", () => {
+    expect(findEntryIndex(rows, { hash: H1.toLowerCase() })).toBe(0);
+    expect(findEntryIndex(rows, { hash: "D".repeat(64) })).toBe(-1);
+    expect(findEntryIndex(rows, {})).toBe(-1);
+  });
+
+  it("prefers the id over a hash that points elsewhere", () => {
+    expect(findEntryIndex(rows, { id: "a", hash: H2 })).toBe(0);
+  });
+
+  it("rekeyEntry moves the old hash into previousHashes", () => {
+    const r = rekeyEntry({ hash: H1, previousHashes: [H3] }, H2);
+    expect(r.hash).toBe(H2);
+    expect(r.previousHashes).toEqual([H1, H3]);
+  });
+
+  it("rekeyEntry ignores invalid or unchanged hashes", () => {
+    const base = { hash: H1, previousHashes: undefined };
+    expect(rekeyEntry(base, "nope")).toBe(base);
+    expect(rekeyEntry(base, H1)).toBe(base);
+  });
+
+  it("rekeyEntry back to an earlier hash does not list the current hash twice", () => {
+    const r = rekeyEntry({ hash: H2, previousHashes: [H1] }, H1);
+    expect(r.hash).toBe(H1);
+    expect(r.previousHashes).toEqual([H2]);
+  });
+});
+
+describe("engineCodeFromError", () => {
+  it("reads structured rippled data", () => {
+    expect(engineCodeFromError({ data: { engine_result: "tefMAX_LEDGER" } })).toBe("tefMAX_LEDGER");
+    expect(engineCodeFromError({ data: { result: { engine_result: "temBAD_FEE" } } })).toBe("temBAD_FEE");
+    expect(engineCodeFromError({ engine_result: "tecUNFUNDED_PAYMENT" })).toBe("tecUNFUNDED_PAYMENT");
+  });
+
+  it("falls back to the message text", () => {
+    expect(engineCodeFromError(new Error("Transaction failed: tecNO_DST_INSUF_XRP"))).toBe(
+      "tecNO_DST_INSUF_XRP",
+    );
+    expect(engineCodeFromError(new Error("submit failed (terQUEUED), retry"))).toBe("terQUEUED");
+  });
+
+  it("looks through error causes", () => {
+    const e = new Error("wrapper", { cause: new Error("temMALFORMED") });
+    expect(engineCodeFromError(e)).toBe("temMALFORMED");
+  });
+
+  it("returns undefined for tesSUCCESS, plain words and non-errors", () => {
+    expect(engineCodeFromError(new Error("terminal failure"))).toBeUndefined();
+    expect(engineCodeFromError(new Error("network timeout"))).toBeUndefined();
+    expect(engineCodeFromError({ engine_result: "tesSUCCESS" })).toBeUndefined();
+    expect(engineCodeFromError(null)).toBeUndefined();
+    expect(engineCodeFromError(undefined)).toBeUndefined();
+    expect(engineCodeFromError(42)).toBeUndefined();
+  });
+
+  it("survives circular structures", () => {
+    const a: Record<string, unknown> = {};
+    a.data = a;
+    expect(engineCodeFromError(a)).toBeUndefined();
+  });
+});
+
+describe("canCheckOnChain", () => {
+  it("is offered for signed rows and for failed rows with no result", () => {
+    expect(canCheckOnChain({ status: "signed" })).toBe(true);
+    expect(canCheckOnChain({ status: "failed" })).toBe(true);
+  });
+
+  it("is not offered once the outcome is known", () => {
+    expect(canCheckOnChain({ status: "failed", engineResult: "tefMAX_LEDGER" })).toBe(false);
+    expect(canCheckOnChain({ status: "submitted" })).toBe(false);
+  });
+});
+
+describe("failure and lookup patches", () => {
+  it("patchFromSubmitFailure records an engine code when given one", () => {
+    expect(patchFromSubmitFailure("xrpljs", 5, "tefMAX_LEDGER")).toEqual({
+      status: "failed",
+      submitVia: "xrpljs",
+      submittedAt: 5,
+      engineResult: "tefMAX_LEDGER",
+    });
+    expect(patchFromSubmitFailure("wallet", 5)).not.toHaveProperty("engineResult");
+  });
+
+  it("a failed row that turns up on-chain becomes submitted with its result", () => {
+    const failed = { submitVia: "xrpljs" as const, submittedAt: 5 };
+    expect(patchFromLookup(failed, { found: true, validated: true, engineResult: "tesSUCCESS" }, 99)).toEqual({
+      status: "submitted",
+      submitVia: "xrpljs",
+      submittedAt: 5,
+      engineResult: "tesSUCCESS",
+      validated: true,
+    });
   });
 });

@@ -1,15 +1,29 @@
 const {
   AccountSetAsfFlags,
+  AMMClawbackFlags,
   AMMDepositFlags,
   Client,
   TrustSetFlags,
 } = require("xrpl");
 
 const client = new Client("wss://s.devnet.rippletest.net:51233/");
-void ammClawbackDevnet();
+
+async function main() {
+  await client.connect();
+  try {
+    await ammClawbackDevnet();
+  } finally {
+    await client.disconnect();
+  }
+}
+
+main().catch((err) => {
+  console.error(err);
+  process.exitCode = 1;
+});
+
 // The snippet walks us through the lifecycle of AMMClawback.
 async function ammClawbackDevnet() {
-  await client.connect();
   // creating wallets as prerequisite
   const { wallet: lpWallet } = await client.fundWallet(null, {
     usageContext: "code snippets",
@@ -143,12 +157,11 @@ async function ammClawbackDevnet() {
     Holder: holderWallet.address,
     Asset: asset,
     Asset2: asset2,
-    Flags: 1,
+    Flags: AMMClawbackFlags.tfClawTwoAssets,
   };
   const ammClawbackResponse = await client.submitAndWait(ammClawback, {
     wallet: issuerWallet,
   });
   console.log("ammClawbackResponse:");
   console.log(ammClawbackResponse);
-  await client.disconnect();
 }

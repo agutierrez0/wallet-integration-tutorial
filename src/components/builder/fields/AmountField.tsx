@@ -1,3 +1,4 @@
+import { useRef, type KeyboardEvent } from "react";
 import type { AmountValue } from "../../../lib/txSchemaTypes";
 import { FieldShell, type FieldProps } from "./FieldShell";
 import { DropsHint, sanitizeXrp } from "./XrpField";
@@ -10,18 +11,38 @@ function normalize(value: unknown): AmountValue {
 export function AmountField({ def, value, onChange, onBlur, error, disabled }: FieldProps<AmountValue>) {
   const amt = normalize(value);
   const set = (patch: Partial<AmountValue>) => onChange({ ...amt, ...patch });
+  const modes = ["xrp", "issued"] as const;
+  const segRefs = useRef<Array<HTMLButtonElement | null>>([]);
+
+  // Radio-group keyboard model: arrows move and select, only the checked radio is a tab stop.
+  const onSegKey = (e: KeyboardEvent<HTMLDivElement>) => {
+    const i = modes.indexOf(amt.mode);
+    let next = i;
+    if (e.key === "ArrowRight" || e.key === "ArrowDown") next = (i + 1) % modes.length;
+    else if (e.key === "ArrowLeft" || e.key === "ArrowUp") next = (i - 1 + modes.length) % modes.length;
+    else if (e.key === "Home") next = 0;
+    else if (e.key === "End") next = modes.length - 1;
+    else return;
+    e.preventDefault();
+    set({ mode: modes[next] });
+    segRefs.current[next]?.focus();
+  };
 
   return (
     <FieldShell def={def} error={error} group>
       {({ id, describedBy, invalid, required }) => (
         <div className="txf-amount">
-          <div className="txf-seg" role="radiogroup" aria-label={`${def.label} type`}>
-            {(["xrp", "issued"] as const).map((mode) => (
+          <div className="txf-seg" role="radiogroup" aria-label={`${def.label} type`} onKeyDown={onSegKey}>
+            {modes.map((mode, idx) => (
               <button
                 key={mode}
+                ref={(el) => {
+                  segRefs.current[idx] = el;
+                }}
                 type="button"
                 role="radio"
                 aria-checked={amt.mode === mode}
+                tabIndex={amt.mode === mode ? 0 : -1}
                 className={`txf-seg-btn${amt.mode === mode ? " is-on" : ""}`}
                 disabled={disabled}
                 onClick={() => set({ mode })}

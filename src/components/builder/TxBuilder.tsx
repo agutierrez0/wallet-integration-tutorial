@@ -25,6 +25,8 @@ interface Props {
   account: string;
   signing: boolean;
   showAllErrors: boolean;
+  // Bump to forget which fields were touched (e.g. restoring the same type from history).
+  resetKey?: string | number;
   preview: string;
   onSelectType: (type: string) => void;
   onChange: (values: FormValues) => void;
@@ -37,6 +39,7 @@ export function TxBuilder({
   account,
   signing,
   showAllErrors,
+  resetKey,
   preview,
   onSelectType,
   onChange,
@@ -60,6 +63,7 @@ export function TxBuilder({
             account={account}
             disabled={signing}
             showAllErrors={showAllErrors}
+            resetKey={resetKey}
           />
           <CopyBlock label="Transaction JSON (preview)" value={preview} />
           <p className="muted">

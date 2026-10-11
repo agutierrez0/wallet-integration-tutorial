@@ -2,6 +2,7 @@ import { useEffect, useId, useRef, useState } from "react";
 import type { HistoryEntry } from "../lib/historyTypes";
 import { toUserError } from "../lib/errors";
 import { explorerUrl, formatRelativeTime, lookupTx, shortHash, summarizeTx } from "../lib/history";
+import { canCheckOnChain } from "../lib/historyEntries";
 import { NETWORKS } from "../lib/networks";
 import { useAction } from "../hooks/useAction";
 import { ActionButton, Alert, StatusPill } from "./ui";
@@ -57,7 +58,14 @@ function isOnChain(e: HistoryEntry): boolean {
 
 type CheckResult =
   | { source: "parent" }
-  | { source: "lookup"; found: boolean; engineResult?: string };
+  | { source: "lookup"; found: boolean; validated?: boolean; engineResult?: string };
+
+// "Found" and "not found" are different from "never checked": a missing transaction may simply
+// not have been sent yet, or not have reached the ledger.
+function foundText(engineResult: string | undefined, validated: boolean | undefined): string {
+  const code = engineResult ?? "result unknown";
+  return validated === false ? `Found, not yet validated: ${code}` : `Found: ${code}`;
+}
 
 function Row({
   entry,
@@ -84,7 +92,7 @@ function Row({
       return { source: "parent" };
     }
     const r = await lookupTx(entry.network, entry.hash);
-    return { source: "lookup", found: r.found, engineResult: r.engineResult };
+    return { source: "lookup", found: r.found, validated: r.validated, engineResult: r.engineResult };
   });
 
   const copy = async () => {
@@ -105,18 +113,21 @@ function Row({
   const full = new Date(entry.createdAt).toLocaleString();
   void now; // re-renders the relative time when the panel ticks
 
+  const checkable = canCheckOnChain(entry);
+  const notFoundText = `Not found on ${net.label}. If you haven't submitted it yet, that's expected.`;
+
   let resultText: string | null = null;
   if (check.status === "success" && check.data) {
     if (check.data.source === "parent") {
-      const found = entry.validated || entry.status === "submitted" || !!entry.engineResult;
-      resultText = found
-        ? `Found: ${entry.engineResult ?? "validated"}`
-        : `Not found on ${net.label}`;
+      // The parent stores the lookup result on the entry, so read it back from there.
+      resultText = onChain ? foundText(entry.engineResult, entry.validated) : notFoundText;
     } else {
       resultText = check.data.found
-        ? `Found: ${check.data.engineResult ?? "validated"}`
-        : `Not found on ${net.label}`;
+        ? foundText(check.data.engineResult, check.data.validated)
+        : notFoundText;
     }
+  } else if (check.status === "loading") {
+    resultText = "Checking the ledger…";
   }
 
   return (
@@ -166,9 +177,15 @@ function Row({
           >
             View on explorer ↗
           </a>
-        ) : entry.status === "signed" ? (
+        ) : checkable ? (
           <div className="hp-unsub">
-            <span className="hp-muted">Not submitted</span>
+            <span className="hp-muted">
+              {entry.status === "failed"
+                ? "Submit failed, outcome unknown"
+                : check.status === "success"
+                  ? "Checked just now"
+                  : "Not checked on-chain"}
+            </span>
             <ActionButton
               variant="secondary"
               className="hp-check"
@@ -195,14 +212,14 @@ function Row({
         {copied === "ok" ? "Hash copied" : copied === "fail" ? "Could not copy hash" : ""}
       </span>
 
-      {resultText && (
-        <p
-          className={`hp-result ${resultText.startsWith("Found") ? "hp-result-ok" : ""}`}
-          role="status"
-        >
-          {resultText}
-        </p>
-      )}
+      {/* Always rendered so screen readers announce changes to it. */}
+      <p
+        className={`hp-result${resultText?.startsWith("Found") ? " hp-result-ok" : ""}`}
+        role="status"
+        aria-live="polite"
+      >
+        {resultText}
+      </p>
       {check.status === "error" && (
         <div className="hp-alert">
           <Alert

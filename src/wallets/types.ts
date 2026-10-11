@@ -12,6 +12,15 @@ export interface WalletSession {
 // Adapters that read the network from the wallet itself can ignore it.
 export interface WalletContext {
   network: NetworkId;
+  // Abort to stop waiting for an approval. Adapters throw before opening a prompt if it is
+  // already aborted, and throw WalletError("CANCELLED") if it fires mid-prompt.
+  signal?: AbortSignal;
+}
+
+export interface CancelResult {
+  cancelled: boolean;
+  // Why the request could not be withdrawn (e.g. already opened on the phone).
+  reason?: string;
 }
 
 // Out-of-band approval (e.g. scan a QR code) that the UI should display.
@@ -29,7 +38,9 @@ export interface WalletAdapter {
   name: string;
   // signOnly: can return a signed blob without submitting it.
   // submit: can sign and submit through the wallet itself.
-  capabilities: { signOnly: boolean; submit: boolean };
+  // walletAutofills: the wallet fills Sequence/Fee/LastLedgerSequence itself, so the app should
+  // not rely on values autofilled earlier (they can expire while the user takes their time).
+  capabilities: { signOnly: boolean; submit: boolean; walletAutofills?: boolean };
   // Set by isAvailable() when it returns false, e.g. "backend not running".
   // The picker falls back to "not installed" when it is empty.
   unavailableReason?: string;
@@ -44,6 +55,8 @@ export interface WalletAdapter {
   disconnect(): Promise<void>;
   // Adapters that need an out-of-band approval report it here. Optional.
   setPromptHandler?(handler: PromptHandler | null): void;
-  // Abandons whatever approval is in flight (stops polling, withdraws the request).
-  cancel?(): void;
+  // Abandons whatever approval is in flight. cancelled:false means the request could not be
+  // withdrawn (e.g. already open on the phone) and may still be approved; the original
+  // sign/submit promise then keeps running and settles with the real outcome.
+  cancel?(): Promise<CancelResult>;
 }

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { NotConnectedError, RippledError, TimeoutError, ValidationError } from "xrpl";
 import { WalletError } from "../wallets/errors";
-import { toUserError } from "./errors";
+import { isCancelled, toUserError } from "./errors";
 import { explainResult } from "./resultCodes";
 
 describe("explainResult", () => {
@@ -72,5 +72,17 @@ describe("toUserError", () => {
     expect(toUserError(new Error("boom")).message).toBe("boom");
     expect(toUserError("plain string").message).toBe("plain string");
     expect(toUserError(42).kind).toBe("unknown");
+  });
+});
+
+describe("CANCELLED", () => {
+  it("is friendly, retryable and detectable", () => {
+    const e = new WalletError("CANCELLED", "stopped");
+    const u = toUserError(e);
+    expect(u.title).toBe("Cancelled");
+    expect(u.retryable).toBe(true);
+    expect(isCancelled(e)).toBe(true);
+    expect(isCancelled(new WalletError("REJECTED", "no"))).toBe(false);
+    expect(isCancelled(new Error("CANCELLED"))).toBe(false);
   });
 });

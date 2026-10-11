@@ -1,4 +1,4 @@
-import { Hono } from "hono";
+import { Hono, type MiddlewareHandler } from "hono";
 import { cors } from "hono/cors";
 import { secureHeaders } from "hono/secure-headers";
 import { bodyLimit } from "hono/body-limit";
@@ -28,14 +28,47 @@ const createSchema = z
     txjson: z.record(z.string(), z.unknown()).optional(),
     signIn: z.boolean().optional(),
     submit: z.boolean().optional(),
-    network: z.enum(["testnet", "devnet", "mainnet"]).optional(),
+    network: z.enum(["testnet", "devnet", "mainnet"], {
+      error: "network is required: testnet, devnet or mainnet",
+    }),
   })
   .refine((b) => b.signIn || typeof b.txjson?.TransactionType === "string", {
     message: "txjson with a string TransactionType is required unless signIn is true",
     path: ["txjson"],
   });
 
-const errorBody = (code: string, message: string) => ({ error: { code, message } });
+const errorBody = (code: string, message: string, extra: Record<string, string> = {}) => ({
+  error: { code, message, ...extra },
+});
+
+// Per-route-class limits per client per minute. Polling is chatty by design (every ~1.5s per
+// open request), creates and cancels are what an abuser would hammer.
+const READ_LIMIT = 240;
+const CREATE_LIMIT = 20;
+const CANCEL_LIMIT = 10;
+const WINDOW_MS = 60_000;
+const MAX_KEY_LENGTH = 64;
+
+type Ctx = Parameters<MiddlewareHandler>[0];
+
+// Who is calling? Only trust proxy headers when told to (TRUST_PROXY=true). nginx sets
+// X-Real-IP / X-Forwarded-For to its own $remote_addr, so these are single trusted values and
+// never contain client-supplied entries. If X-Forwarded-For is all we have, use the right-most
+// entry (the one added by the nearest proxy), never the left-most (client-controlled).
+function clientKey(c: Ctx, trustProxy: boolean): string {
+  if (trustProxy) {
+    const real = c.req.header("x-real-ip")?.trim();
+    if (real) return real.slice(0, MAX_KEY_LENGTH);
+    const parts = c.req.header("x-forwarded-for")?.split(",");
+    const last = parts?.[parts.length - 1]?.trim();
+    if (last) return last.slice(0, MAX_KEY_LENGTH);
+  }
+  try {
+    return getConnInfo(c).remote.address ?? "unknown";
+  } catch {
+    return "unknown"; // no socket (e.g. app.request in tests)
+  }
+}
 
 export function createApp(config: Config, xaman: XamanClient) {
   const app = new Hono();
@@ -50,24 +83,33 @@ export function createApp(config: Config, xaman: XamanClient) {
       maxAge: 600,
     }),
   );
-  app.use(
-    "/api/*",
-    rateLimit({
-      limit: 60,
-      windowMs: 60_000,
-      getKey: (c) => {
-        if (config.trustProxy) {
-          const forwarded = c.req.header("x-forwarded-for")?.split(",")[0]?.trim();
-          if (forwarded) return forwarded;
-        }
-        try {
-          return getConnInfo(c).remote.address ?? "unknown";
-        } catch {
-          return "unknown"; // no socket (e.g. app.request in tests)
-        }
-      },
-    }),
-  );
+  // Defense in depth, NOT authentication: browsers always send Origin on cross-origin POST/DELETE,
+  // so this stops other websites from driving the API through a visitor's browser. Non-browser
+  // clients (curl) can still call it; the rate limits and the testnet-only default bound abuse.
+  app.use("/api/*", async (c, next) => {
+    const method = c.req.method;
+    if (method === "GET" || method === "HEAD" || method === "OPTIONS") return next();
+    const origin = c.req.header("origin");
+    if (origin !== undefined) {
+      if (!config.allowedOrigins.includes(origin)) {
+        return c.json(errorBody("FORBIDDEN_ORIGIN", "This origin is not allowed."), 403);
+      }
+    } else if (c.req.header("sec-fetch-site") === "cross-site") {
+      return c.json(errorBody("FORBIDDEN_ORIGIN", "Cross-site requests are not allowed."), 403);
+    }
+    return next();
+  });
+
+  const getKey = (c: Ctx) => clientKey(c, config.trustProxy);
+  const readLimiter = rateLimit({ limit: READ_LIMIT, windowMs: WINDOW_MS, getKey });
+  const createLimiter = rateLimit({ limit: CREATE_LIMIT, windowMs: WINDOW_MS, getKey });
+  const cancelLimiter = rateLimit({ limit: CANCEL_LIMIT, windowMs: WINDOW_MS, getKey });
+  app.use("/api/*", (c, next) => {
+    if (c.req.method === "OPTIONS" || c.req.path === "/api/health") return next();
+    if (c.req.method === "POST") return createLimiter(c, next);
+    if (c.req.method === "DELETE") return cancelLimiter(c, next);
+    return readLimiter(c, next);
+  });
 
   // /api/health is the same route as seen through the nginx/vite /api proxy.
   app.get("/health", (c) => c.text("ok"));
@@ -92,12 +134,18 @@ export function createApp(config: Config, xaman: XamanClient) {
         return c.json(errorBody("INVALID_REQUEST", message), 400);
       }
       const { txjson, signIn, submit, network } = parsed.data;
+      if (network === "mainnet" && !config.allowMainnet) {
+        return c.json(
+          errorBody("MAINNET_DISABLED", "Mainnet is disabled on this server. Use testnet or devnet."),
+          403,
+        );
+      }
       const body: XummTypes.XummPostPayloadBodyJson = {
         txjson: signIn ? { TransactionType: "SignIn" } : (txjson as XummTypes.XummJsonTransaction),
         options: {
           submit: signIn ? false : (submit ?? false),
           expire: EXPIRE_MINUTES,
-          ...(network ? { force_network: FORCE_NETWORK[network] } : {}),
+          force_network: FORCE_NETWORK[network],
         },
       };
       try {
@@ -141,6 +189,19 @@ export function createApp(config: Config, xaman: XamanClient) {
     try {
       const res = await xaman.payload.cancel(uuid, true);
       if (!res) return c.json(errorBody("NOT_FOUND", "Payload not found."), 404);
+      // The SDK resolves normally when it could NOT cancel (e.g. already opened on the phone).
+      // Report that honestly: the request may still be signed.
+      if (!res.result?.cancelled) {
+        const reason = /^[A-Z_]{1,40}$/.test(String(res.result?.reason))
+          ? String(res.result?.reason)
+          : "UNKNOWN";
+        return c.json(
+          errorBody("CANNOT_CANCEL", "The request could not be cancelled and may still be signed.", {
+            reason,
+          }),
+          409,
+        );
+      }
       return c.body(null, 204);
     } catch (err) {
       return upstreamFailure(c, "cancel", err);
