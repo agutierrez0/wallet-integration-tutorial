@@ -1,6 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { createXamanAdapter } from "./xaman";
-import { WalletError } from "./errors";
 import type { WalletPrompt } from "./types";
 
 const postBody = (n = 0) =>

@@ -4,7 +4,7 @@ Headless XRPL experiments, imported from the old `xrpl-sandbox` repo. They use f
 testnet/devnet wallets and never need a real seed.
 
 ## Python (`scripts/python`)
-Needs **Python 3.10+**.
+Needs **Python 3.10+** and `xrpl-py>=4.5,<6` (pinned in `requirements.txt`).
 ```bash
 cd scripts/python
 python3 -m venv .venv && source .venv/bin/activate

@@ -87,6 +87,7 @@ export default function App() {
   const checkAvail = useAction(readAvailability);
   const available = lateAvailable ?? checkAvail.data ?? null;
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: mount-only availability probe; checkAvail.run is intentionally not a trigger
   useEffect(() => {
     void checkAvail.run();
     const t = setTimeout(() => {
@@ -210,6 +211,7 @@ export default function App() {
   });
 
   // Record each finished signature. Submit results are written by the actions themselves.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: record once per new signature; `history` is a fresh object each render and must not retrigger this
   useEffect(() => {
     if (signed) history.add(signed.entry);
   }, [signed]);
@@ -436,6 +438,7 @@ export default function App() {
 
       {notices.map((n, i) => (
         <Alert
+          // biome-ignore lint/suspicious/noArrayIndexKey: notices have no id; the list is replaced wholesale per restore (nonce)
           key={`${loadRequest.nonce}-${i}`}
           variant={n.tone}
           message={n.message}

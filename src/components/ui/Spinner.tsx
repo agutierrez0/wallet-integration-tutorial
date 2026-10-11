@@ -6,13 +6,7 @@ interface SpinnerProps {
 }
 
 export function Spinner({ size = 16, label }: SpinnerProps) {
-  return (
-    <span
-      className="ui-spinner"
-      style={{ width: size, height: size }}
-      role={label ? "status" : undefined}
-      aria-label={label}
-      aria-hidden={label ? undefined : true}
-    />
-  );
+  const style = { width: size, height: size };
+  if (label) return <span className="ui-spinner" style={style} role="status" aria-label={label} />;
+  return <span className="ui-spinner" style={style} aria-hidden="true" />;
 }

@@ -34,6 +34,7 @@ export function AmountField({ def, value, onChange, onBlur, error, disabled }: F
         <div className="txf-amount">
           <div className="txf-seg" role="radiogroup" aria-label={`${def.label} type`} onKeyDown={onSegKey}>
             {modes.map((mode, idx) => (
+              // biome-ignore lint/a11y/useSemanticElements: segmented control per the ARIA radio-group pattern (roving tabindex + arrow keys); native radios cannot be styled as these buttons
               <button
                 key={mode}
                 ref={(el) => {

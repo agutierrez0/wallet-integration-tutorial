@@ -28,6 +28,7 @@ export function SkeletonBlock({ lines = 4, label = "Loading" }: SkeletonBlockPro
     <div className="ui-skeleton-block" role="status" aria-live="polite" aria-busy="true">
       <span className="ui-sr-only">{label}</span>
       {Array.from({ length: lines }, (_, i) => (
+        // biome-ignore lint/suspicious/noArrayIndexKey: fixed-length decorative placeholder, never reordered
         <Skeleton key={i} width={i === lines - 1 ? "60%" : "100%"} />
       ))}
     </div>
