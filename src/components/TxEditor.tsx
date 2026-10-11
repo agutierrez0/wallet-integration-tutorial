@@ -138,8 +138,7 @@ export function TxEditor({
     [schema, values, account],
   );
   const firstError = schema
-    ? schema.fields.map((f) => errors[f.name]).find(Boolean) ??
-      Object.values(errors)[0]
+    ? (schema.fields.map((f) => errors[f.name]).find(Boolean) ?? Object.values(errors)[0])
     : undefined;
   const errorCount = Object.keys(errors).length;
   const preview = useMemo(
@@ -364,9 +363,7 @@ export function TxEditor({
       <p id="tx-hint" className={hint.tone === "bad" ? "bad inline-msg" : "muted"}>
         {hint.text}
       </p>
-      {busy && !signing && (
-        <p className="muted">Locked while a submission is in progress.</p>
-      )}
+      {busy && !signing && <p className="muted">Locked while a submission is in progress.</p>}
       <div className="row wrap">
         <ActionButton
           loading={signing}
@@ -386,8 +383,7 @@ export function TxEditor({
       </div>
       {signing && (
         <p className="muted">
-          Cancel stops waiting and ignores the result. Close any wallet popup
-          that is still open.
+          Cancel stops waiting and ignores the result. Close any wallet popup that is still open.
         </p>
       )}
     </section>

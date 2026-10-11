@@ -8,7 +8,14 @@ function normalize(value: unknown): AmountValue {
   return { mode: "xrp", value: "" };
 }
 
-export function AmountField({ def, value, onChange, onBlur, error, disabled }: FieldProps<AmountValue>) {
+export function AmountField({
+  def,
+  value,
+  onChange,
+  onBlur,
+  error,
+  disabled,
+}: FieldProps<AmountValue>) {
   const amt = normalize(value);
   const set = (patch: Partial<AmountValue>) => onChange({ ...amt, ...patch });
   const modes = ["xrp", "issued"] as const;
@@ -19,7 +26,8 @@ export function AmountField({ def, value, onChange, onBlur, error, disabled }: F
     const i = modes.indexOf(amt.mode);
     let next = i;
     if (e.key === "ArrowRight" || e.key === "ArrowDown") next = (i + 1) % modes.length;
-    else if (e.key === "ArrowLeft" || e.key === "ArrowUp") next = (i - 1 + modes.length) % modes.length;
+    else if (e.key === "ArrowLeft" || e.key === "ArrowUp")
+      next = (i - 1 + modes.length) % modes.length;
     else if (e.key === "Home") next = 0;
     else if (e.key === "End") next = modes.length - 1;
     else return;
@@ -32,7 +40,12 @@ export function AmountField({ def, value, onChange, onBlur, error, disabled }: F
     <FieldShell def={def} error={error} group>
       {({ id, describedBy, invalid, required }) => (
         <div className="txf-amount">
-          <div className="txf-seg" role="radiogroup" aria-label={`${def.label} type`} onKeyDown={onSegKey}>
+          <div
+            className="txf-seg"
+            role="radiogroup"
+            aria-label={`${def.label} type`}
+            onKeyDown={onSegKey}
+          >
             {modes.map((mode, idx) => (
               // biome-ignore lint/a11y/useSemanticElements: segmented control per the ARIA radio-group pattern (roving tabindex + arrow keys); native radios cannot be styled as these buttons
               <button

@@ -210,11 +210,7 @@ export function WalletPicker({
         </p>
       )}
       {connect.status === "error" && !isCancelled(connect.error) && (
-        <Alert
-          error={toUserError(connect.error)}
-          onRetry={onConnect}
-          onDismiss={connect.reset}
-        />
+        <Alert error={toUserError(connect.error)} onRetry={onConnect} onDismiss={connect.reset} />
       )}
       {fund.status === "success" && (
         <Alert

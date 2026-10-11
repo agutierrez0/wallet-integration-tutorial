@@ -13,7 +13,9 @@ describe("runPrompt", () => {
     const run = vi.fn(async () => 1);
     const ac = new AbortController();
     ac.abort();
-    await expect(runPrompt({ wallet: "W", action: "a", run, signal: ac.signal })).rejects.toMatchObject({
+    await expect(
+      runPrompt({ wallet: "W", action: "a", run, signal: ac.signal }),
+    ).rejects.toMatchObject({
       code: "CANCELLED",
     });
     expect(run).not.toHaveBeenCalled();
@@ -42,7 +44,11 @@ describe("runPrompt", () => {
 
   it("times out with EXPIRED and tells the user it may still be approved", async () => {
     vi.useFakeTimers();
-    const p = runPrompt({ wallet: "GemWallet", action: "signing", run: () => new Promise(() => {}) });
+    const p = runPrompt({
+      wallet: "GemWallet",
+      action: "signing",
+      run: () => new Promise(() => {}),
+    });
     const assertion = expect(p).rejects.toMatchObject({
       code: "EXPIRED",
       message:
@@ -54,7 +60,11 @@ describe("runPrompt", () => {
 
   it("wraps unexpected failures as UNKNOWN but keeps WalletErrors intact", async () => {
     await expect(
-      runPrompt({ wallet: "W", action: "signing", run: async () => Promise.reject(new Error("boom")) }),
+      runPrompt({
+        wallet: "W",
+        action: "signing",
+        run: async () => Promise.reject(new Error("boom")),
+      }),
     ).rejects.toMatchObject({ code: "UNKNOWN", message: "W: signing failed" });
     await expect(
       runPrompt({

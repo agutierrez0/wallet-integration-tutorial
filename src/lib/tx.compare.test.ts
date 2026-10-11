@@ -15,8 +15,7 @@ const built = {
   LastLedgerSequence: 200,
 };
 
-const sign = (tx: Record<string, unknown>, w = wallet) =>
-  w.sign(tx as never).tx_blob;
+const sign = (tx: Record<string, unknown>, w = wallet) => w.sign(tx as never).tx_blob;
 
 describe("compareSignedToBuilt", () => {
   it("accepts a blob that matches what was built", () => {
@@ -27,7 +26,12 @@ describe("compareSignedToBuilt", () => {
   });
 
   it("ignores fields a wallet fills in itself", () => {
-    const sent = { TransactionType: "Payment", Account: wallet.address, Destination: other.address, Amount: "1000000" };
+    const sent = {
+      TransactionType: "Payment",
+      Account: wallet.address,
+      Destination: other.address,
+      Amount: "1000000",
+    };
     const r = compareSignedToBuilt(sent, sign(built));
     expect(r.ok).toBe(true);
   });
@@ -55,7 +59,14 @@ describe("compareSignedToBuilt", () => {
   });
 
   it("treats hex case and numeric formatting as equal", () => {
-    const a = { TransactionType: "AccountSet", Account: wallet.address, Domain: "6578616d706c652e636f6d", TransferRate: 1000000100, Sequence: 1, Fee: "12" };
+    const a = {
+      TransactionType: "AccountSet",
+      Account: wallet.address,
+      Domain: "6578616d706c652e636f6d",
+      TransferRate: 1000000100,
+      Sequence: 1,
+      Fee: "12",
+    };
     const b = { ...a, Domain: "6578616D706C652E636F6D" };
     expect(compareSignedToBuilt(a, sign(b)).ok).toBe(true);
     // the builder may hold a number where the codec returns a string, and vice versa

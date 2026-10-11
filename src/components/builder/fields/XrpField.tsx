@@ -6,7 +6,10 @@ export function sanitizeXrp(input: string): string {
   const dot = cleaned.indexOf(".");
   if (dot === -1) return cleaned;
   const int = cleaned.slice(0, dot);
-  const frac = cleaned.slice(dot + 1).replace(/\./g, "").slice(0, 6);
+  const frac = cleaned
+    .slice(dot + 1)
+    .replace(/\./g, "")
+    .slice(0, 6);
   return `${int}.${frac}`;
 }
 

@@ -87,8 +87,7 @@ const KNOWN: Record<string, ResultExplanation> = {
   temMALFORMED: {
     category: "failed",
     title: "Malformed transaction",
-    explanation:
-      "Some fields are missing or invalid. Review the transaction JSON.",
+    explanation: "Some fields are missing or invalid. Review the transaction JSON.",
   },
   temBAD_FEE: {
     category: "failed",
@@ -109,8 +108,7 @@ const KNOWN: Record<string, ResultExplanation> = {
   telINSUF_FEE_P: {
     category: "retry",
     title: "Fee too low for this server",
-    explanation:
-      "The server's current load requires a higher fee. Sign again to refresh the fee.",
+    explanation: "The server's current load requires a higher fee. Sign again to refresh the fee.",
   },
 };
 

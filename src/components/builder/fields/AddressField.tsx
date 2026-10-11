@@ -1,7 +1,15 @@
 import { isValidClassicAddress } from "xrpl";
 import { FieldShell, type FieldProps } from "./FieldShell";
 
-export function AddressField({ def, value, onChange, onBlur, error, disabled, account }: FieldProps<string>) {
+export function AddressField({
+  def,
+  value,
+  onChange,
+  onBlur,
+  error,
+  disabled,
+  account,
+}: FieldProps<string>) {
   const v = typeof value === "string" ? value : "";
   const valid = v !== "" && isValidClassicAddress(v);
   const canUseMine = !!account && v !== account;

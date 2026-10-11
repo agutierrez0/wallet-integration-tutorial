@@ -82,8 +82,8 @@ function ResultCard({
         message={
           <>
             <p className="result-line">
-              The node accepted the transaction but didn't report a final result.
-              Look it up on the explorer.
+              The node accepted the transaction but didn't report a final result. Look it up on the
+              explorer.
             </p>
             <p className="result-line">
               <code>{hash}</code>
@@ -208,8 +208,9 @@ export function SignedOutput({
                 <ul className="mismatch-list">
                   {comparison.mismatches.map((m) => (
                     <li key={m.field}>
-                      <strong>{m.field}</strong>: built <code>{JSON.stringify(m.built) ?? "(none)"}</code>
-                      , signed <code>{JSON.stringify(m.signed) ?? "(none)"}</code>
+                      <strong>{m.field}</strong>: built{" "}
+                      <code>{JSON.stringify(m.built) ?? "(none)"}</code>, signed{" "}
+                      <code>{JSON.stringify(m.signed) ?? "(none)"}</code>
                     </li>
                   ))}
                 </ul>
@@ -217,8 +218,8 @@ export function SignedOutput({
               {comparison.signerMismatch && (
                 <p className="result-line">
                   The signing key belongs to <code>{comparison.signerMismatch.derived}</code>, not{" "}
-                  <code>{comparison.signerMismatch.account}</code>. That is normal for a regular
-                  key or multi-signing, but otherwise another account signed this.
+                  <code>{comparison.signerMismatch.account}</code>. That is normal for a regular key
+                  or multi-signing, but otherwise another account signed this.
                 </p>
               )}
               <label className="check">
@@ -293,8 +294,8 @@ export function SignedOutput({
       )}
       {wLoading && (
         <p className="muted" role="status">
-          Approve the request in the {walletName} popup. Cancel stops waiting and
-          ignores the result.
+          Approve the request in the {walletName} popup. Cancel stops waiting and ignores the
+          result.
         </p>
       )}
 

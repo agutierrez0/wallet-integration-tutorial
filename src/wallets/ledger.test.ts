@@ -84,7 +84,8 @@ describe("signWithDevice", () => {
 
   it("rejects a signature that does not verify, without echoing it", async () => {
     const { wallet, device } = fakeDevice();
-    const bogus = "3044022000000000000000000000000000000000000000000000000000000000000000010220000000000000000000000000000000000000000000000000000000000000002";
+    const bogus =
+      "3044022000000000000000000000000000000000000000000000000000000000000000010220000000000000000000000000000000000000000000000000000000000000002";
     device.signTransaction = async () => bogus;
     const err = await signWithDevice(payment(wallet.classicAddress), device).catch((e) => e);
     expect(err).toBeInstanceOf(WalletError);
@@ -95,8 +96,13 @@ describe("signWithDevice", () => {
   it("rejects an address that does not match the public key", async () => {
     const { wallet, device } = fakeDevice();
     const other = Wallet.generate(ECDSA.secp256k1);
-    device.getAddress = async () => ({ address: other.classicAddress, publicKey: wallet.publicKey });
-    await expect(signWithDevice(payment(other.classicAddress), device)).rejects.toMatchObject({ code: "UNKNOWN" });
+    device.getAddress = async () => ({
+      address: other.classicAddress,
+      publicKey: wallet.publicKey,
+    });
+    await expect(signWithDevice(payment(other.classicAddress), device)).rejects.toMatchObject({
+      code: "UNKNOWN",
+    });
   });
 });
 
@@ -118,17 +124,42 @@ describe("normalizePublicKey", () => {
 describe("mapLedgerError", () => {
   const cases: [string, unknown, string, RegExp?][] = [
     ["user rejected on device", deviceError("TransportStatusError", 0x6985), "REJECTED"],
-    ["app not open (CLA)", deviceError("TransportStatusError", 0x6e00), "NOT_INSTALLED", /Open the XRP app/],
-    ["app not open (INS)", deviceError("TransportStatusError", 0x6d00), "NOT_INSTALLED", /Open the XRP app/],
-    ["bootloader CLA", deviceError("TransportStatusError", 0x6e01), "NOT_INSTALLED", /Open the XRP app/],
-    ["app not open (6511)", deviceError("TransportStatusError", 0x6511), "NOT_INSTALLED", /Open the XRP app/],
+    [
+      "app not open (CLA)",
+      deviceError("TransportStatusError", 0x6e00),
+      "NOT_INSTALLED",
+      /Open the XRP app/,
+    ],
+    [
+      "app not open (INS)",
+      deviceError("TransportStatusError", 0x6d00),
+      "NOT_INSTALLED",
+      /Open the XRP app/,
+    ],
+    [
+      "bootloader CLA",
+      deviceError("TransportStatusError", 0x6e01),
+      "NOT_INSTALLED",
+      /Open the XRP app/,
+    ],
+    [
+      "app not open (6511)",
+      deviceError("TransportStatusError", 0x6511),
+      "NOT_INSTALLED",
+      /Open the XRP app/,
+    ],
     ["locked 6b0c", deviceError("TransportStatusError", 0x6b0c), "LOCKED", /Unlock/],
     ["locked 5515", deviceError("TransportStatusError", 0x5515), "LOCKED", /Unlock/],
     ["locked by name", deviceError("LockedDeviceError"), "LOCKED"],
     ["picker closed by user", deviceError("TransportOpenUserCancelled"), "CANCELLED"],
     ["no device selected", deviceError("NotFoundError"), "NOT_INSTALLED", /No Ledger selected/],
     ["permission denied", deviceError("NotAllowedError"), "NOT_INSTALLED", /No Ledger selected/],
-    ["unplugged", deviceError("DisconnectedDeviceDuringOperation"), "NOT_INSTALLED", /disconnected/i],
+    [
+      "unplugged",
+      deviceError("DisconnectedDeviceDuringOperation"),
+      "NOT_INSTALLED",
+      /disconnected/i,
+    ],
     ["busy", deviceError("TransportInterfaceNotAvailable"), "UNKNOWN", /busy/i],
     ["timeout", deviceError("TimeoutError"), "EXPIRED"],
     ["anything else", new Error("boom"), "UNKNOWN"],
@@ -187,17 +218,23 @@ describe("ledger adapter", () => {
     expect(session.address).toBe(wallet.classicAddress);
     expect(session.publicKey).toBe(wallet.publicKey.toUpperCase());
 
-    const blob = await adapter.signTransaction(payment(wallet.classicAddress), { network: "testnet" });
+    const blob = await adapter.signTransaction(payment(wallet.classicAddress), {
+      network: "testnet",
+    });
     expect(verifySignature(blob)).toBe(true);
 
     await adapter.disconnect();
     expect(close).toHaveBeenCalledTimes(1);
-    await expect(adapter.signTransaction(payment(wallet.classicAddress))).rejects.toMatchObject({ code: "LOCKED" });
+    await expect(adapter.signTransaction(payment(wallet.classicAddress))).rejects.toMatchObject({
+      code: "LOCKED",
+    });
   });
 
   it("signing before connecting says to connect first", async () => {
     const { adapter } = adapterWith(fakeDevice().device);
-    await expect(adapter.signTransaction(payment("rX"))).rejects.toThrow(/Connect your Ledger first/);
+    await expect(adapter.signTransaction(payment("rX"))).rejects.toThrow(
+      /Connect your Ledger first/,
+    );
   });
 
   it("maps a device rejection to REJECTED", async () => {
@@ -207,14 +244,18 @@ describe("ledger adapter", () => {
     device.signTransaction = async () => {
       throw deviceError("TransportStatusError", 0x6985);
     };
-    await expect(adapter.signTransaction(payment(wallet.classicAddress))).rejects.toMatchObject({ code: "REJECTED" });
+    await expect(adapter.signTransaction(payment(wallet.classicAddress))).rejects.toMatchObject({
+      code: "REJECTED",
+    });
   });
 
   it("an already-aborted signal throws before the device is opened", async () => {
     const { adapter, open } = adapterWith(fakeDevice().device);
     const controller = new AbortController();
     controller.abort();
-    await expect(adapter.connect({ network: "testnet", signal: controller.signal })).rejects.toMatchObject({
+    await expect(
+      adapter.connect({ network: "testnet", signal: controller.signal }),
+    ).rejects.toMatchObject({
       code: "CANCELLED",
     });
     expect(open).not.toHaveBeenCalled();
@@ -228,7 +269,10 @@ describe("ledger adapter", () => {
     const controller = new AbortController();
     controller.abort();
     await expect(
-      adapter.signTransaction(payment(wallet.classicAddress), { network: "testnet", signal: controller.signal }),
+      adapter.signTransaction(payment(wallet.classicAddress), {
+        network: "testnet",
+        signal: controller.signal,
+      }),
     ).rejects.toMatchObject({ code: "CANCELLED" });
     expect(sign).not.toHaveBeenCalled();
   });
@@ -271,7 +315,9 @@ describe("ledger adapter", () => {
 
     release();
     await vi.waitFor(() => expect(close).toHaveBeenCalledTimes(1));
-    await expect(adapter.signTransaction(payment(wallet.classicAddress))).rejects.toThrow(/Connect your Ledger first/);
+    await expect(adapter.signTransaction(payment(wallet.classicAddress))).rejects.toThrow(
+      /Connect your Ledger first/,
+    );
   });
 
   it("closes the transport when connecting fails", async () => {

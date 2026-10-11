@@ -14,10 +14,20 @@ function schema(type: string) {
   return s;
 }
 
-function form(type: string, values: FormValues = {}, extra: Partial<Parameters<typeof TxForm>[0]> = {}) {
+function form(
+  type: string,
+  values: FormValues = {},
+  extra: Partial<Parameters<typeof TxForm>[0]> = {},
+) {
   const s = schema(type);
   return renderToStaticMarkup(
-    <TxForm schema={s} values={{ ...defaultValues(s), ...values }} onChange={noop} errors={{}} {...extra} />,
+    <TxForm
+      schema={s}
+      values={{ ...defaultValues(s), ...values }}
+      onChange={noop}
+      errors={{}}
+      {...extra}
+    />,
   );
 }
 
@@ -68,7 +78,9 @@ describe("TxForm field rendering", () => {
     const html = form("Payment");
     expect(html).toMatch(/aria-checked="true"[^>]*tabindex="0"[^>]*>XRP</);
     expect(html).toMatch(/aria-checked="false"[^>]*tabindex="-1"[^>]*>Issued currency</);
-    const issued = form("Payment", { Amount: { mode: "issued", value: "", currency: "", issuer: "" } });
+    const issued = form("Payment", {
+      Amount: { mode: "issued", value: "", currency: "", issuer: "" },
+    });
     expect(issued).toMatch(/aria-checked="false"[^>]*tabindex="-1"[^>]*>XRP</);
     expect(issued).toMatch(/aria-checked="true"[^>]*tabindex="0"[^>]*>Issued currency</);
   });
@@ -92,7 +104,11 @@ describe("TxForm error announcements", () => {
   it("summarises the remaining errors politely in one status region", () => {
     const html = form("Payment", {}, { errors, showAllErrors: true });
     expect(html).toMatch(/role="status" aria-live="polite">1 more field needs attention/);
-    const three = form("Payment", {}, { errors: { Destination: "a", Amount: "b", DestinationTag: "c" }, showAllErrors: true });
+    const three = form(
+      "Payment",
+      {},
+      { errors: { Destination: "a", Amount: "b", DestinationTag: "c" }, showAllErrors: true },
+    );
     expect(three).toContain("2 more fields need attention");
   });
 
@@ -112,7 +128,9 @@ describe("DateTimeField helpers", () => {
 
 describe("TypeSelector expanded state", () => {
   const html = (value?: string) =>
-    renderToStaticMarkup(<TypeSelector schemas={SCHEMAS} categories={CATEGORIES} value={value} onSelect={noop} />);
+    renderToStaticMarkup(
+      <TypeSelector schemas={SCHEMAS} categories={CATEGORIES} value={value} onSelect={noop} />,
+    );
 
   it("reports a real aria-expanded: open with no value, collapsed with one", () => {
     expect(html()).toContain('role="combobox"');

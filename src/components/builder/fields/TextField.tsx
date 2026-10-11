@@ -3,14 +3,7 @@ import { FieldShell, type FieldProps } from "./FieldShell";
 type TextKind = "text" | "hex" | "integer" | "currency";
 
 // One component for the plain single-line kinds; they differ only in input filtering.
-export function TextField({
-  def,
-  value,
-  onChange,
-  onBlur,
-  error,
-  disabled,
-}: FieldProps<string>) {
+export function TextField({ def, value, onChange, onBlur, error, disabled }: FieldProps<string>) {
   const kind = def.kind as TextKind;
   const v = typeof value === "string" ? value : "";
 

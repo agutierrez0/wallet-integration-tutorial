@@ -34,7 +34,9 @@ beforeEach(() => {
 
 describe("GemWallet adapter", () => {
   it("throws CANCELLED before touching the extension when already aborted", async () => {
-    await expect(gemwallet.signTransaction(tx, aborted())).rejects.toMatchObject({ code: "CANCELLED" });
+    await expect(gemwallet.signTransaction(tx, aborted())).rejects.toMatchObject({
+      code: "CANCELLED",
+    });
     await expect(gemwallet.connect(aborted())).rejects.toMatchObject({ code: "CANCELLED" });
     await expect(gemwallet.submitTransaction!(tx, aborted())).rejects.toMatchObject({
       code: "CANCELLED",
@@ -79,7 +81,9 @@ describe("GemWallet adapter", () => {
 
 describe("Crossmark adapter", () => {
   it("throws CANCELLED before touching the extension when already aborted", async () => {
-    await expect(crossmark.signTransaction(tx, aborted())).rejects.toMatchObject({ code: "CANCELLED" });
+    await expect(crossmark.signTransaction(tx, aborted())).rejects.toMatchObject({
+      code: "CANCELLED",
+    });
     await expect(crossmark.connect(aborted())).rejects.toMatchObject({ code: "CANCELLED" });
     expect(cm.methods.signAndWait).not.toHaveBeenCalled();
     expect(cm.methods.signInAndWait).not.toHaveBeenCalled();
@@ -95,7 +99,9 @@ describe("Crossmark adapter", () => {
   });
 
   it("returns the txBlob and maps a rejection", async () => {
-    cm.methods.signAndWait.mockResolvedValueOnce({ response: { data: { txBlob: "CC", meta: {} } } });
+    cm.methods.signAndWait.mockResolvedValueOnce({
+      response: { data: { txBlob: "CC", meta: {} } },
+    });
     await expect(crossmark.signTransaction(tx)).resolves.toBe("CC");
     cm.methods.signAndWait.mockResolvedValueOnce({
       response: { data: { meta: { isRejected: true } } },

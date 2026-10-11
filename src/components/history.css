@@ -86,7 +86,9 @@
   border-left-width: 3px;
   border-radius: 10px;
   padding: 4px;
-  transition: background 0.15s ease, border-color 0.15s ease;
+  transition:
+    background 0.15s ease,
+    border-color 0.15s ease;
 }
 .hp-row:hover {
   background: var(--hp-tint);

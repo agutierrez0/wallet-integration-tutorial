@@ -2,13 +2,7 @@ import type { XummTypes } from "xumm-sdk";
 
 type XummPayload = XummTypes.XummGetPayloadResponse;
 
-export type PayloadStatus =
-  | "pending"
-  | "opened"
-  | "signed"
-  | "rejected"
-  | "expired"
-  | "cancelled";
+export type PayloadStatus = "pending" | "opened" | "signed" | "rejected" | "expired" | "cancelled";
 
 export interface PayloadView {
   uuid: string;

@@ -92,7 +92,12 @@ function Row({
       return { source: "parent" };
     }
     const r = await lookupTx(entry.network, entry.hash);
-    return { source: "lookup", found: r.found, validated: r.validated, engineResult: r.engineResult };
+    return {
+      source: "lookup",
+      found: r.found,
+      validated: r.validated,
+      engineResult: r.engineResult,
+    };
   });
 
   const copy = async () => {

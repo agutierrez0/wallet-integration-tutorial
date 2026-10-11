@@ -50,7 +50,10 @@ async function installed(): Promise<boolean> {
 
 async function requireSdk(): Promise<Sdk> {
   if (!(await probeWithTimeout(installed))) {
-    throw new WalletError("NOT_INSTALLED", "Crossmark was not found. Install the extension and reload.");
+    throw new WalletError(
+      "NOT_INSTALLED",
+      "Crossmark was not found. Install the extension and reload.",
+    );
   }
   return loadSdk();
 }
@@ -82,7 +85,10 @@ export const crossmark: WalletAdapter = {
         const data = res?.response?.data;
         assertOk(data?.meta, "sign-in");
         if (!data?.address) {
-          throw new WalletError("LOCKED", "Crossmark returned no account. Unlock it and select an account.");
+          throw new WalletError(
+            "LOCKED",
+            "Crossmark returned no account. Unlock it and select an account.",
+          );
         }
         return {
           address: data.address,

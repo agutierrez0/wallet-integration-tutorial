@@ -70,7 +70,8 @@ function sanitizeEntry(raw: unknown): HistoryEntry | null {
   const { id, createdAt, network, walletId, account, txType, tx, status } = raw;
   const hash = normalizeHash(raw.hash);
   if (
-    !isStr(id) || !id ||
+    !isStr(id) ||
+    !id ||
     !isNum(createdAt) ||
     !isNetworkId(network) ||
     !isStr(walletId) ||
@@ -78,7 +79,8 @@ function sanitizeEntry(raw: unknown): HistoryEntry | null {
     !isStr(txType) ||
     !isObject(tx) ||
     !hash ||
-    !isStr(status) || !STATUSES.includes(status as HistoryStatus)
+    !isStr(status) ||
+    !STATUSES.includes(status as HistoryStatus)
   ) {
     return null;
   }
@@ -216,7 +218,10 @@ export function removeEntry(
 ): HistoryEntry[] {
   const current = loadHistory(storage);
   if (!current.some((e) => e.id === id)) return current;
-  return persist(storage, current.filter((e) => e.id !== id));
+  return persist(
+    storage,
+    current.filter((e) => e.id !== id),
+  );
 }
 
 export function clearHistory(storage: StorageLike | null = defaultStorage()): HistoryEntry[] {
@@ -253,12 +258,12 @@ export function createHistoryStore(options?: {
   storage?: StorageLike | null;
   events?: StorageEventTarget | null;
 }): HistoryStore {
-  const requested = options && "storage" in options ? options.storage ?? null : defaultStorage();
+  const requested = options && "storage" in options ? (options.storage ?? null) : defaultStorage();
   const available = probe(requested);
   const storage: StorageLike = available && requested ? requested : createMemoryStorage();
   const events: StorageEventTarget | null =
     options && "events" in options
-      ? options.events ?? null
+      ? (options.events ?? null)
       : typeof window !== "undefined"
         ? window
         : null;
@@ -415,7 +420,8 @@ function isNotFound(e: unknown): boolean {
 export async function lookupTx(network: NetworkId, hash: string): Promise<LookupResult> {
   const h = normalizeHash(hash);
   if (!isNetworkId(network)) throw new Error(`Unknown network: ${String(network)}`);
-  if (!h) throw new Error("That doesn't look like a transaction hash (expected 64 hex characters).");
+  if (!h)
+    throw new Error("That doesn't look like a transaction hash (expected 64 hex characters).");
   return withClient(NETWORKS[network], async (client) => {
     try {
       const response = await client.request({ command: "tx", transaction: h });

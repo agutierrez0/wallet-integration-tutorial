@@ -11,13 +11,7 @@ import type {
 
 const NAME = "Xaman";
 
-type PayloadStatus =
-  | "pending"
-  | "opened"
-  | "signed"
-  | "rejected"
-  | "expired"
-  | "cancelled";
+type PayloadStatus = "pending" | "opened" | "signed" | "rejected" | "expired" | "cancelled";
 
 interface PayloadCreated {
   uuid: string;
@@ -146,7 +140,8 @@ export function createXamanAdapter(options: XamanOptions = {}): WalletAdapter {
     if (res.status === 409) {
       return {
         cancelled: false,
-        reason: err.reason ?? err.message ?? "It is already open in Xaman and may still be approved.",
+        reason:
+          err.reason ?? err.message ?? "It is already open in Xaman and may still be approved.",
       };
     }
     return { cancelled: false, reason: err.message ?? `Backend returned ${res.status}` };
@@ -302,11 +297,7 @@ export function createXamanAdapter(options: XamanOptions = {}): WalletAdapter {
 
     async connect(ctx?: WalletContext): Promise<WalletSession> {
       const network = requireNetwork(ctx);
-      const result = await request(
-        "Sign in with Xaman",
-        { signIn: true, network },
-        ctx?.signal,
-      );
+      const result = await request("Sign in with Xaman", { signIn: true, network }, ctx?.signal);
       if (!result.account) {
         throw new WalletError("UNKNOWN", "Xaman signed in but returned no account.");
       }
@@ -334,7 +325,10 @@ export function createXamanAdapter(options: XamanOptions = {}): WalletAdapter {
         ctx?.signal,
       );
       if (!result.txid) {
-        throw new WalletError("UNKNOWN", "Xaman signed the request but returned no transaction hash.");
+        throw new WalletError(
+          "UNKNOWN",
+          "Xaman signed the request but returned no transaction hash.",
+        );
       }
       return result.txid;
     },

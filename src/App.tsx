@@ -23,12 +23,7 @@ import {
 } from "./lib/historyEntries";
 import type { RestoreNotice } from "./lib/historyEntries";
 import type { HistoryEntry } from "./lib/historyTypes";
-import {
-  autofillTx,
-  fundFromFaucet,
-  parseTx,
-  submitWithXrplJs,
-} from "./lib/tx";
+import { autofillTx, fundFromFaucet, parseTx, submitWithXrplJs } from "./lib/tx";
 import type { TxJson } from "./lib/tx";
 import { NetworkBar } from "./components/NetworkBar";
 import { WalletPicker } from "./components/WalletPicker";
@@ -127,17 +122,19 @@ export default function App() {
   };
 
   // After a wallet-side submit, or an xrpl.js submit that threw, ask the ledger what happened.
-  const check = useAction(
-    async ({ signal }, entry: HistoryEntry, hash: string, net: NetworkId) => {
-      const res = await pollTxResult(net, hash, { lookup: lookupTx, signal });
-      if (res.found) {
-        const i = findEntryIndex(entriesRef.current, { id: entry.id, hash: entry.hash, prevHash: hash });
-        const patch = patchFromLookup(entriesRef.current[i] ?? entry, res, Date.now());
-        if (patch) recordPatch(entry, patch, hash);
-      }
-      return res;
-    },
-  );
+  const check = useAction(async ({ signal }, entry: HistoryEntry, hash: string, net: NetworkId) => {
+    const res = await pollTxResult(net, hash, { lookup: lookupTx, signal });
+    if (res.found) {
+      const i = findEntryIndex(entriesRef.current, {
+        id: entry.id,
+        hash: entry.hash,
+        prevHash: hash,
+      });
+      const patch = patchFromLookup(entriesRef.current[i] ?? entry, res, Date.now());
+      if (patch) recordPatch(entry, patch, hash);
+    }
+    return res;
+  });
 
   const cancelledBeforePrompt = () =>
     new WalletError("CANCELLED", "Cancelled before the wallet was asked.");
@@ -191,7 +188,9 @@ export default function App() {
     if (!signed || !adapter?.submitTransaction) throw new Error("Sign a transaction first.");
     const s = signed;
     // The wallet signs again, so give it a transaction with fresh Sequence/LastLedgerSequence.
-    const fresh = adapter.capabilities.walletAutofills ? s.entry.tx : await autofillTx(network, s.entry.tx);
+    const fresh = adapter.capabilities.walletAutofills
+      ? s.entry.tx
+      : await autofillTx(network, s.entry.tx);
     if (signal.aborted) throw cancelledBeforePrompt();
     try {
       const hash = await adapter.submitTransaction(fresh, { network: networkId, signal });
@@ -242,8 +241,7 @@ export default function App() {
     setNotices(plan.notices);
   };
 
-  const addNotice = (message: string) =>
-    setNotices((ns) => [...ns, { tone: "info", message }]);
+  const addNotice = (message: string) => setNotices((ns) => [...ns, { tone: "info", message }]);
 
   // Stops waiting on the wallet (and withdraws its request) without dropping a finished connection.
   // A wallet that can't withdraw (the request is already open on the phone) keeps the QR and the
@@ -378,8 +376,8 @@ export default function App() {
       <header>
         <h1>XRPL Wallet Sandbox</h1>
         <p className="muted">
-          Connect any wallet, sign a transaction, get the blob and hash, then
-          submit it however you like.
+          Connect any wallet, sign a transaction, get the blob and hash, then submit it however you
+          like.
         </p>
       </header>
 

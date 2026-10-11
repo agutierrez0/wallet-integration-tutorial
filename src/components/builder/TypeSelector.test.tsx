@@ -2,7 +2,12 @@ import { describe, expect, it } from "vitest";
 import type { TxSchema } from "../../lib/txSchemaTypes";
 import { filterSchemas } from "./TypeSelector";
 
-const mk = (type: string, label: string, description: string, category: TxSchema["category"]): TxSchema => ({
+const mk = (
+  type: string,
+  label: string,
+  description: string,
+  category: TxSchema["category"],
+): TxSchema => ({
   type,
   label,
   description,

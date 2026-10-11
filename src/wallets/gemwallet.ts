@@ -22,7 +22,10 @@ function result<T>(res: { type?: unknown; result?: T } | undefined, action: stri
     throw new WalletError("REJECTED", `GemWallet: ${action} was rejected`);
   }
   if (!res?.result) {
-    throw new WalletError("LOCKED", `GemWallet: ${action} returned nothing. Unlock it and select an account.`);
+    throw new WalletError(
+      "LOCKED",
+      `GemWallet: ${action} returned nothing. Unlock it and select an account.`,
+    );
   }
   return res.result;
 }
@@ -38,7 +41,10 @@ async function installed(): Promise<boolean> {
 
 async function requireGem(): Promise<Gem> {
   if (!(await probeWithTimeout(installed))) {
-    throw new WalletError("NOT_INSTALLED", "GemWallet was not found. Install the extension and reload.");
+    throw new WalletError(
+      "NOT_INSTALLED",
+      "GemWallet was not found. Install the extension and reload.",
+    );
   }
   return loadGem();
 }
@@ -109,7 +115,8 @@ export const gemwallet: WalletAdapter = {
           await gem.submitTransaction({ transaction: tx as never }),
           "submit",
         );
-        if (!hash) throw new WalletError("UNKNOWN", "GemWallet: submit returned no transaction hash");
+        if (!hash)
+          throw new WalletError("UNKNOWN", "GemWallet: submit returned no transaction hash");
         return hash;
       },
     });

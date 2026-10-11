@@ -36,11 +36,7 @@ export function NetworkBar({
           onChange={(e) => onNetwork(e.target.value as NetworkId)}
         >
           {Object.values(NETWORKS).map((n) => (
-            <option
-              key={n.id}
-              value={n.id}
-              disabled={n.id === "mainnet" && !mainnetOk}
-            >
+            <option key={n.id} value={n.id} disabled={n.id === "mainnet" && !mainnetOk}>
               {n.label}
             </option>
           ))}

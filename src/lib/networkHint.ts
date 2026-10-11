@@ -21,7 +21,11 @@ export function normalizeNetworkHint(hint?: string): HintNetwork | undefined {
   return "unknown";
 }
 
-const SHORT: Record<NetworkId, string> = { testnet: "Testnet", devnet: "Devnet", mainnet: "Mainnet" };
+const SHORT: Record<NetworkId, string> = {
+  testnet: "Testnet",
+  devnet: "Devnet",
+  mainnet: "Mainnet",
+};
 export const shortNetworkName = (id: NetworkId) => SHORT[id];
 
 // Message when the wallet's reported network is known and differs from the app's, else null.

@@ -109,7 +109,9 @@ const DATETIME_RE = /^(\d{4})-(\d{2})-(\d{2})(?:T(\d{2}):(\d{2})(?::(\d{2}))?)?Z
 function parseRippleTime(s: string): number | null {
   const m = DATETIME_RE.exec(s.trim());
   if (!m) return null;
-  const [y, mo, d, h, mi, sec] = [m[1], m[2], m[3], m[4] ?? "0", m[5] ?? "0", m[6] ?? "0"].map(Number);
+  const [y, mo, d, h, mi, sec] = [m[1], m[2], m[3], m[4] ?? "0", m[5] ?? "0", m[6] ?? "0"].map(
+    Number,
+  );
   const ms = Date.UTC(y, mo - 1, d, h, mi, sec);
   const dt = new Date(ms);
   if (
@@ -201,9 +203,12 @@ function validateField(f: FieldDef, v: FieldValue): string | undefined {
     }
     case "hex": {
       const s = str(v);
-      if (!/^[0-9a-fA-F]+$/.test(s) || s.length % 2 !== 0) return "Enter an even number of hex characters (0-9, A-F)";
+      if (!/^[0-9a-fA-F]+$/.test(s) || s.length % 2 !== 0)
+        return "Enter an even number of hex characters (0-9, A-F)";
       if (f.min !== undefined && s.length < f.min) {
-        return f.min === f.max ? `Must be exactly ${f.min} hex characters` : `At least ${f.min} hex characters`;
+        return f.min === f.max
+          ? `Must be exactly ${f.min} hex characters`
+          : `At least ${f.min} hex characters`;
       }
       if (f.max !== undefined && s.length > f.max) return `At most ${f.max} hex characters`;
       return undefined;
@@ -243,7 +248,9 @@ interface Codec {
 }
 
 function asRecord(x: unknown): Record<string, unknown> | null {
-  return typeof x === "object" && x !== null && !Array.isArray(x) ? (x as Record<string, unknown>) : null;
+  return typeof x === "object" && x !== null && !Array.isArray(x)
+    ? (x as Record<string, unknown>)
+    : null;
 }
 
 const codec = {
@@ -265,21 +272,34 @@ const codec = {
   xrp: (tx: string): Codec => ({
     tx,
     enc: (v) => xrpToDrops(str(v)),
-    dec: (raw) => (typeof raw === "string" && /^\d+$/.test(raw) ? dropsToXrp(raw).toString() : null),
+    dec: (raw) =>
+      typeof raw === "string" && /^\d+$/.test(raw) ? dropsToXrp(raw).toString() : null,
   }),
   amount: (tx: string): Codec => ({
     tx,
     enc: (v) => {
       if (!isAmount(v)) return undefined;
       if (v.mode === "xrp") return xrpToDrops(v.value.trim());
-      return { currency: (v.currency ?? "").trim(), issuer: (v.issuer ?? "").trim(), value: v.value.trim() };
+      return {
+        currency: (v.currency ?? "").trim(),
+        issuer: (v.issuer ?? "").trim(),
+        value: v.value.trim(),
+      };
     },
     dec: (raw) => {
-      if (typeof raw === "string" && /^\d+$/.test(raw)) return { mode: "xrp", value: dropsToXrp(raw).toString() };
+      if (typeof raw === "string" && /^\d+$/.test(raw))
+        return { mode: "xrp", value: dropsToXrp(raw).toString() };
       const r = asRecord(raw);
-      if (r && typeof r.currency === "string" && typeof r.issuer === "string" && typeof r.value === "string") {
+      if (
+        r &&
+        typeof r.currency === "string" &&
+        typeof r.issuer === "string" &&
+        typeof r.value === "string"
+      ) {
         const value = expandExponent(r.value);
-        return value === null ? null : { mode: "issued", value, currency: r.currency, issuer: r.issuer };
+        return value === null
+          ? null
+          : { mode: "issued", value, currency: r.currency, issuer: r.issuer };
       }
       return null; // e.g. MPT amounts
     },
@@ -310,7 +330,9 @@ const codec = {
     tx,
     enc: (v) => Number(str(v)),
     dec: (raw) =>
-      typeof raw === "number" && Number.isInteger(raw) && options.some((o) => o.value === String(raw))
+      typeof raw === "number" &&
+      Number.isInteger(raw) &&
+      options.some((o) => o.value === String(raw))
         ? String(raw)
         : null,
   }),
@@ -319,7 +341,9 @@ const codec = {
 // ---- list kinds (one entry per line, commas also accepted) ----
 
 function splitList(v: FieldValue): string[] {
-  return str(v).split(/[\s,]+/).filter(Boolean);
+  return str(v)
+    .split(/[\s,]+/)
+    .filter(Boolean);
 }
 
 const HASH_RE = /^[0-9A-Fa-f]{64}$/;
@@ -335,10 +359,12 @@ const offerIdsCodec: Codec = {
   check: (v) => {
     const ids = splitList(v);
     if (ids.length === 0) return "Enter at least one offer ID";
-    if (ids.length > MAX_CANCEL_OFFERS) return `At most ${MAX_CANCEL_OFFERS} offers per transaction`;
+    if (ids.length > MAX_CANCEL_OFFERS)
+      return `At most ${MAX_CANCEL_OFFERS} offers per transaction`;
     const bad = ids.find((x) => !HASH_RE.test(x));
     if (bad) return `"${bad.slice(0, 12)}…" is not a 64-character hex offer ID`;
-    if (new Set(ids.map((x) => x.toUpperCase())).size !== ids.length) return "Each offer ID may appear only once";
+    if (new Set(ids.map((x) => x.toUpperCase())).size !== ids.length)
+      return "Each offer ID may appear only once";
     return undefined;
   },
 };
@@ -363,7 +389,9 @@ function parseSignerLines(v: FieldValue): SignerLine[] {
 const signerEntriesCodec: Codec = {
   tx: "SignerEntries",
   enc: (v) =>
-    parseSignerLines(v).map((e) => ({ SignerEntry: { Account: e.account, SignerWeight: Number(e.weight) } })),
+    parseSignerLines(v).map((e) => ({
+      SignerEntry: { Account: e.account, SignerWeight: Number(e.weight) },
+    })),
   dec: (raw) => {
     if (!Array.isArray(raw) || raw.length === 0) return null;
     const lines: string[] = [];
@@ -389,7 +417,10 @@ const memoCodec: Codec = {
     const memo = asRecord(asRecord(raw[0])?.Memo);
     if (!memo || typeof memo.MemoData !== "string") return null;
     if (Object.keys(memo).some((k) => k !== "MemoType" && k !== "MemoData")) return null;
-    if (memo.MemoType !== undefined && (typeof memo.MemoType !== "string" || memo.MemoType.toUpperCase() !== MEMO_TYPE_HEX)) {
+    if (
+      memo.MemoType !== undefined &&
+      (typeof memo.MemoType !== "string" || memo.MemoType.toUpperCase() !== MEMO_TYPE_HEX)
+    ) {
       return null;
     }
     return hexToText(memo.MemoData);
@@ -577,7 +608,12 @@ const toggle = (name: string, label: string, o: Partial<FieldDef> = {}): FieldDe
   kind: "toggle",
   ...o,
 });
-const dateField = (name: string, label: string, help: string, o: Partial<FieldDef> = {}): FieldDef => ({
+const dateField = (
+  name: string,
+  label: string,
+  help: string,
+  o: Partial<FieldDef> = {},
+): FieldDef => ({
   name,
   label,
   kind: "datetime",
@@ -595,28 +631,94 @@ const DESTINATION_TAG = integer("DestinationTag", "Destination tag", {
 // Schemas
 // ---------------------------------------------------------------------------
 
-const asf = (flag: number, label: string, help: string): FieldOption => ({ value: String(flag), label, help });
+const asf = (flag: number, label: string, help: string): FieldOption => ({
+  value: String(flag),
+  label,
+  help,
+});
 
 const ASF_OPTIONS: FieldOption[] = [
-  asf(AccountSetAsfFlags.asfRequireDest, "Require destination tag", "Payments to this account must include a destination tag (asfRequireDest)."),
-  asf(AccountSetAsfFlags.asfRequireAuth, "Require authorization", "Issuer must approve each trust line before it can hold tokens (asfRequireAuth)."),
-  asf(AccountSetAsfFlags.asfDisallowXRP, "Disallow XRP", "Signals that this account should not receive XRP (asfDisallowXRP)."),
-  asf(AccountSetAsfFlags.asfDisableMaster, "Disable master key", "Needs a regular key or signer list. Hard to undo (asfDisableMaster)."),
-  asf(AccountSetAsfFlags.asfAccountTxnID, "Track account transaction ID", "Required before later transactions can use the AccountTxnID field (asfAccountTxnID)."),
-  asf(AccountSetAsfFlags.asfNoFreeze, "No freeze (permanent)", "Permanently gives up the ability to freeze trust lines. Cannot be undone (asfNoFreeze)."),
-  asf(AccountSetAsfFlags.asfGlobalFreeze, "Global freeze", "Freezes all tokens this account has issued (asfGlobalFreeze)."),
-  asf(AccountSetAsfFlags.asfDefaultRipple, "Default ripple", "Enable on token issuers so holders can trade tokens with each other (asfDefaultRipple)."),
-  asf(AccountSetAsfFlags.asfDepositAuth, "Deposit authorization", "Blocks incoming payments except from preauthorized accounts (asfDepositAuth)."),
-  asf(AccountSetAsfFlags.asfAuthorizedNFTokenMinter, "Authorize an NFT minter", "Lets another account mint NFTs on your behalf; enter it below. To remove it, choose this under 'Turn off setting' (asfAuthorizedNFTokenMinter)."),
-  asf(AccountSetAsfFlags.asfDisallowIncomingNFTokenOffer, "Block incoming NFT offers", "asfDisallowIncomingNFTokenOffer"),
-  asf(AccountSetAsfFlags.asfDisallowIncomingCheck, "Block incoming checks", "asfDisallowIncomingCheck"),
-  asf(AccountSetAsfFlags.asfDisallowIncomingPayChan, "Block incoming payment channels", "asfDisallowIncomingPayChan"),
-  asf(AccountSetAsfFlags.asfDisallowIncomingTrustline, "Block incoming trust lines", "asfDisallowIncomingTrustline"),
-  asf(AccountSetAsfFlags.asfAllowTrustLineClawback, "Allow token clawback (permanent)", "Lets you claw back tokens you issue. Only works on an account with no trust lines, offers, escrows, checks or signer lists, and can never be turned off (asfAllowTrustLineClawback)."),
+  asf(
+    AccountSetAsfFlags.asfRequireDest,
+    "Require destination tag",
+    "Payments to this account must include a destination tag (asfRequireDest).",
+  ),
+  asf(
+    AccountSetAsfFlags.asfRequireAuth,
+    "Require authorization",
+    "Issuer must approve each trust line before it can hold tokens (asfRequireAuth).",
+  ),
+  asf(
+    AccountSetAsfFlags.asfDisallowXRP,
+    "Disallow XRP",
+    "Signals that this account should not receive XRP (asfDisallowXRP).",
+  ),
+  asf(
+    AccountSetAsfFlags.asfDisableMaster,
+    "Disable master key",
+    "Needs a regular key or signer list. Hard to undo (asfDisableMaster).",
+  ),
+  asf(
+    AccountSetAsfFlags.asfAccountTxnID,
+    "Track account transaction ID",
+    "Required before later transactions can use the AccountTxnID field (asfAccountTxnID).",
+  ),
+  asf(
+    AccountSetAsfFlags.asfNoFreeze,
+    "No freeze (permanent)",
+    "Permanently gives up the ability to freeze trust lines. Cannot be undone (asfNoFreeze).",
+  ),
+  asf(
+    AccountSetAsfFlags.asfGlobalFreeze,
+    "Global freeze",
+    "Freezes all tokens this account has issued (asfGlobalFreeze).",
+  ),
+  asf(
+    AccountSetAsfFlags.asfDefaultRipple,
+    "Default ripple",
+    "Enable on token issuers so holders can trade tokens with each other (asfDefaultRipple).",
+  ),
+  asf(
+    AccountSetAsfFlags.asfDepositAuth,
+    "Deposit authorization",
+    "Blocks incoming payments except from preauthorized accounts (asfDepositAuth).",
+  ),
+  asf(
+    AccountSetAsfFlags.asfAuthorizedNFTokenMinter,
+    "Authorize an NFT minter",
+    "Lets another account mint NFTs on your behalf; enter it below. To remove it, choose this under 'Turn off setting' (asfAuthorizedNFTokenMinter).",
+  ),
+  asf(
+    AccountSetAsfFlags.asfDisallowIncomingNFTokenOffer,
+    "Block incoming NFT offers",
+    "asfDisallowIncomingNFTokenOffer",
+  ),
+  asf(
+    AccountSetAsfFlags.asfDisallowIncomingCheck,
+    "Block incoming checks",
+    "asfDisallowIncomingCheck",
+  ),
+  asf(
+    AccountSetAsfFlags.asfDisallowIncomingPayChan,
+    "Block incoming payment channels",
+    "asfDisallowIncomingPayChan",
+  ),
+  asf(
+    AccountSetAsfFlags.asfDisallowIncomingTrustline,
+    "Block incoming trust lines",
+    "asfDisallowIncomingTrustline",
+  ),
+  asf(
+    AccountSetAsfFlags.asfAllowTrustLineClawback,
+    "Allow token clawback (permanent)",
+    "Lets you claw back tokens you issue. Only works on an account with no trust lines, offers, escrows, checks or signer lists, and can never be turned off (asfAllowTrustLineClawback).",
+  ),
 ];
 
 // Clawback, once enabled, can't be cleared.
-const ASF_CLEAR_OPTIONS = ASF_OPTIONS.filter((o) => o.value !== String(AccountSetAsfFlags.asfAllowTrustLineClawback));
+const ASF_CLEAR_OPTIONS = ASF_OPTIONS.filter(
+  (o) => o.value !== String(AccountSetAsfFlags.asfAllowTrustLineClawback),
+);
 
 const payment = makeSchema({
   type: "Payment",
@@ -625,11 +727,31 @@ const payment = makeSchema({
   category: "payments",
   icon: "↗",
   fields: [
-    address("Destination", "Destination", { required: true, help: "The account that receives the payment." }),
-    { name: "Amount", label: "Amount", kind: "amount", required: true, help: "What the destination receives. Issued tokens need a trust line." },
+    address("Destination", "Destination", {
+      required: true,
+      help: "The account that receives the payment.",
+    }),
+    {
+      name: "Amount",
+      label: "Amount",
+      kind: "amount",
+      required: true,
+      help: "What the destination receives. Issued tokens need a trust line.",
+    },
     DESTINATION_TAG,
-    hex("InvoiceID", "Invoice ID", { advanced: true, min: 64, max: 64, help: "256-bit (64 hex characters) identifier for your records." }),
-    { name: "SendMax", label: "Send max", kind: "amount", advanced: true, help: "Cap on what you spend; used for cross-currency payments." },
+    hex("InvoiceID", "Invoice ID", {
+      advanced: true,
+      min: 64,
+      max: 64,
+      help: "256-bit (64 hex characters) identifier for your records.",
+    }),
+    {
+      name: "SendMax",
+      label: "Send max",
+      kind: "amount",
+      advanced: true,
+      help: "Cap on what you spend; used for cross-currency payments.",
+    },
   ],
   codecs: {
     Destination: codec.string("Destination"),
@@ -643,12 +765,21 @@ const payment = makeSchema({
     const amount = values.Amount;
     const sendMax = values.SendMax;
     // XRP delivered with an XRP SendMax is rejected by the ledger (temBAD_SEND_XRP_MAX).
-    if (isAmount(amount) && isAmount(sendMax) && amount.mode === "xrp" && sendMax.mode === "xrp" && !isEmptyValue(amount) && !isEmptyValue(sendMax)) {
-      errors.SendMax = "Send max can't be XRP when you are sending XRP. Leave it empty, or use an issued currency";
+    if (
+      isAmount(amount) &&
+      isAmount(sendMax) &&
+      amount.mode === "xrp" &&
+      sendMax.mode === "xrp" &&
+      !isEmptyValue(amount) &&
+      !isEmptyValue(sendMax)
+    ) {
+      errors.SendMax =
+        "Send max can't be XRP when you are sending XRP. Leave it empty, or use an issued currency";
     }
     // Paying yourself only makes sense as a cross-currency conversion (needs a Send max).
     if (ctx?.account && str(values.Destination) === ctx.account && isEmptyValue(sendMax)) {
-      errors.Destination = "You can't send a payment to yourself unless you also set a Send max (currency conversion)";
+      errors.Destination =
+        "You can't send a payment to yourself unless you also set a Send max (currency conversion)";
     }
     return errors;
   },
@@ -661,15 +792,36 @@ const accountSet = makeSchema({
   category: "account",
   icon: "⚙",
   fields: [
-    { name: "Domain", label: "Domain", kind: "text", placeholder: "example.com", help: "Lowercase domain that owns this account. Stored as hex.", showWhen: { field: "ClearDomain", equals: false } },
-    toggle("ClearDomain", "Remove domain", { help: "Clears the domain currently set on this account (sends an empty Domain)." }),
-    { name: "SetFlag", label: "Turn on setting", kind: "select", options: ASF_OPTIONS, placeholder: "None" },
+    {
+      name: "Domain",
+      label: "Domain",
+      kind: "text",
+      placeholder: "example.com",
+      help: "Lowercase domain that owns this account. Stored as hex.",
+      showWhen: { field: "ClearDomain", equals: false },
+    },
+    toggle("ClearDomain", "Remove domain", {
+      help: "Clears the domain currently set on this account (sends an empty Domain).",
+    }),
+    {
+      name: "SetFlag",
+      label: "Turn on setting",
+      kind: "select",
+      options: ASF_OPTIONS,
+      placeholder: "None",
+    },
     address("NFTokenMinter", "NFT minter", {
       required: true,
       showWhen: { field: "SetFlag", equals: String(AccountSetAsfFlags.asfAuthorizedNFTokenMinter) },
       help: "The account that is allowed to mint NFTs on your behalf.",
     }),
-    { name: "ClearFlag", label: "Turn off setting", kind: "select", options: ASF_CLEAR_OPTIONS, placeholder: "None" },
+    {
+      name: "ClearFlag",
+      label: "Turn off setting",
+      kind: "select",
+      options: ASF_CLEAR_OPTIONS,
+      placeholder: "None",
+    },
     integer("TransferRate", "Transfer rate", {
       advanced: true,
       min: 0,
@@ -677,8 +829,18 @@ const accountSet = makeSchema({
       placeholder: "1000000000",
       help: "Fee on tokens you issue, in billionths. 1000000000 = no fee, 1005000000 = 0.5%, 0 resets.",
     }),
-    integer("TickSize", "Tick size", { advanced: true, min: 0, max: 15, help: "Significant digits for offer prices (3-15). 0 resets." }),
-    hex("MessageKey", "Message key", { advanced: true, min: 66, max: 66, help: "33-byte public key for encrypted messages (66 hex characters)." }),
+    integer("TickSize", "Tick size", {
+      advanced: true,
+      min: 0,
+      max: 15,
+      help: "Significant digits for offer prices (3-15). 0 resets.",
+    }),
+    hex("MessageKey", "Message key", {
+      advanced: true,
+      min: 66,
+      max: 66,
+      help: "33-byte public key for encrypted messages (66 hex characters).",
+    }),
   ],
   codecs: {
     Domain: codec.hexText("Domain", { lower: true, maxBytes: 256, ascii: true }),
@@ -696,13 +858,18 @@ const accountSet = makeSchema({
   parseExtra(tx, values) {
     if (tx.Domain === "") values.ClearDomain = true;
     // The minter only makes sense together with asfAuthorizedNFTokenMinter; otherwise keep it as raw JSON.
-    if (values.NFTokenMinter && values.SetFlag !== String(AccountSetAsfFlags.asfAuthorizedNFTokenMinter)) return false;
+    if (
+      values.NFTokenMinter &&
+      values.SetFlag !== String(AccountSetAsfFlags.asfAuthorizedNFTokenMinter)
+    )
+      return false;
     return true;
   },
   validate(values) {
     const errors: FieldErrors = {};
     const set = str(values.SetFlag);
-    if (set && set === str(values.ClearFlag)) errors.ClearFlag = "Cannot turn a setting on and off in the same transaction";
+    if (set && set === str(values.ClearFlag))
+      errors.ClearFlag = "Cannot turn a setting on and off in the same transaction";
     const rate = str(values.TransferRate);
     if (/^\d+$/.test(rate)) {
       const n = Number(rate);
@@ -726,7 +893,9 @@ const setRegularKey = makeSchema({
   category: "account",
   icon: "⚿",
   fields: [
-    address("RegularKey", "Regular key address", { help: "Leave empty to remove the current regular key." }),
+    address("RegularKey", "Regular key address", {
+      help: "Leave empty to remove the current regular key.",
+    }),
   ],
   codecs: { RegularKey: codec.string("RegularKey") },
   noSelf: ["RegularKey"],
@@ -739,7 +908,13 @@ const ticketCreate = makeSchema({
   category: "account",
   icon: "▤",
   fields: [
-    integer("TicketCount", "Number of tickets", { required: true, min: 1, max: 250, placeholder: "1", help: "1 to 250. Each ticket adds to the account reserve." }),
+    integer("TicketCount", "Number of tickets", {
+      required: true,
+      min: 1,
+      max: 250,
+      placeholder: "1",
+      help: "1 to 250. Each ticket adds to the account reserve.",
+    }),
   ],
   codecs: { TicketCount: codec.int("TicketCount") },
 });
@@ -751,9 +926,23 @@ const trustSet = makeSchema({
   category: "trust-dex",
   icon: "⇄",
   fields: [
-    { name: "currency", label: "Currency", kind: "currency", required: true, placeholder: "USD", help: "3-character code or 40 hex characters." },
+    {
+      name: "currency",
+      label: "Currency",
+      kind: "currency",
+      required: true,
+      placeholder: "USD",
+      help: "3-character code or 40 hex characters.",
+    },
     address("issuer", "Issuer", { required: true, help: "The account that issues this token." }),
-    { name: "limit", label: "Limit", kind: "text", required: true, placeholder: "1000", help: "Most you are willing to hold. 0 removes the trust line." },
+    {
+      name: "limit",
+      label: "Limit",
+      kind: "text",
+      required: true,
+      placeholder: "1000",
+      help: "Most you are willing to hold. 0 removes the trust line.",
+    },
     {
       name: "NoRipple",
       label: "Rippling",
@@ -761,8 +950,16 @@ const trustSet = makeSchema({
       advanced: true,
       placeholder: "Leave unchanged",
       options: [
-        { value: "set", label: "Disable rippling (set NoRipple)", help: "Stops balances on this line from rippling through your account." },
-        { value: "clear", label: "Allow rippling (clear NoRipple)", help: "Lets balances on this line ripple through your account." },
+        {
+          value: "set",
+          label: "Disable rippling (set NoRipple)",
+          help: "Stops balances on this line from rippling through your account.",
+        },
+        {
+          value: "clear",
+          label: "Allow rippling (clear NoRipple)",
+          help: "Lets balances on this line ripple through your account.",
+        },
       ],
     },
     {
@@ -773,12 +970,25 @@ const trustSet = makeSchema({
       placeholder: "Leave unchanged",
       options: [
         { value: "set", label: "Freeze line", help: "Issuer only. Freezes this trust line." },
-        { value: "clear", label: "Unfreeze line", help: "Issuer only. Removes a freeze from this trust line." },
+        {
+          value: "clear",
+          label: "Unfreeze line",
+          help: "Issuer only. Removes a freeze from this trust line.",
+        },
       ],
     },
-    toggle("SetAuth", "Authorize holder", { advanced: true, help: "Issuer only, with Require authorization on. Authorization can't be undone." }),
-    integer("QualityIn", "Quality in", { advanced: true, help: "Rate for incoming balance, in billionths." }),
-    integer("QualityOut", "Quality out", { advanced: true, help: "Rate for outgoing balance, in billionths." }),
+    toggle("SetAuth", "Authorize holder", {
+      advanced: true,
+      help: "Issuer only, with Require authorization on. Authorization can't be undone.",
+    }),
+    integer("QualityIn", "Quality in", {
+      advanced: true,
+      help: "Rate for incoming balance, in billionths.",
+    }),
+    integer("QualityOut", "Quality out", {
+      advanced: true,
+      help: "Rate for outgoing balance, in billionths.",
+    }),
   ],
   codecs: { QualityIn: codec.int("QualityIn"), QualityOut: codec.int("QualityOut") },
   flags: { SetAuth: TrustSetFlags.tfSetfAuth },
@@ -797,7 +1007,12 @@ const trustSet = makeSchema({
   },
   parseExtra(tx, values) {
     const la = asRecord(tx.LimitAmount);
-    if (!la || typeof la.currency !== "string" || typeof la.issuer !== "string" || typeof la.value !== "string") {
+    if (
+      !la ||
+      typeof la.currency !== "string" ||
+      typeof la.issuer !== "string" ||
+      typeof la.value !== "string"
+    ) {
       return false;
     }
     const limit = expandExponent(la.value);
@@ -810,8 +1025,10 @@ const trustSet = makeSchema({
   validate(values) {
     const errors: FieldErrors = {};
     const limit = str(values.limit);
-    if (limit && !/^\d+(\.\d+)?$/.test(limit)) errors.limit = "Enter a number like 1000 (0 removes the line)";
-    else if (limit && limit.replace(".", "").replace(/^0+/, "").length > 16) errors.limit = "At most 16 significant digits";
+    if (limit && !/^\d+(\.\d+)?$/.test(limit))
+      errors.limit = "Enter a number like 1000 (0 removes the line)";
+    else if (limit && limit.replace(".", "").replace(/^0+/, "").length > 16)
+      errors.limit = "At most 16 significant digits";
     return errors;
   },
 });
@@ -823,14 +1040,44 @@ const offerCreate = makeSchema({
   category: "trust-dex",
   icon: "⇅",
   fields: [
-    { name: "TakerGets", label: "You sell", kind: "amount", required: true, help: "What you give up when the offer is taken." },
-    { name: "TakerPays", label: "You receive", kind: "amount", required: true, help: "What you get when the offer is taken." },
-    dateField("Expiration", "Expires", "UTC date/time after which the offer is void.", { advanced: true }),
-    integer("OfferSequence", "Replace offer", { advanced: true, min: 1, help: "Sequence number of an earlier offer to cancel and replace." }),
-    toggle("Passive", "Passive", { advanced: true, help: "Do not take offers that cross at the same rate." }),
-    toggle("ImmediateOrCancel", "Immediate or cancel", { advanced: true, help: "Fill what you can now, cancel the rest." }),
-    toggle("FillOrKill", "Fill or kill", { advanced: true, help: "Fill completely or not at all." }),
-    toggle("Sell", "Sell", { advanced: true, help: "Sell the full amount even if it gets more than TakerPays." }),
+    {
+      name: "TakerGets",
+      label: "You sell",
+      kind: "amount",
+      required: true,
+      help: "What you give up when the offer is taken.",
+    },
+    {
+      name: "TakerPays",
+      label: "You receive",
+      kind: "amount",
+      required: true,
+      help: "What you get when the offer is taken.",
+    },
+    dateField("Expiration", "Expires", "UTC date/time after which the offer is void.", {
+      advanced: true,
+    }),
+    integer("OfferSequence", "Replace offer", {
+      advanced: true,
+      min: 1,
+      help: "Sequence number of an earlier offer to cancel and replace.",
+    }),
+    toggle("Passive", "Passive", {
+      advanced: true,
+      help: "Do not take offers that cross at the same rate.",
+    }),
+    toggle("ImmediateOrCancel", "Immediate or cancel", {
+      advanced: true,
+      help: "Fill what you can now, cancel the rest.",
+    }),
+    toggle("FillOrKill", "Fill or kill", {
+      advanced: true,
+      help: "Fill completely or not at all.",
+    }),
+    toggle("Sell", "Sell", {
+      advanced: true,
+      help: "Sell the full amount even if it gets more than TakerPays.",
+    }),
   ],
   codecs: {
     TakerGets: codec.amount("TakerGets"),
@@ -851,7 +1098,14 @@ const offerCreate = makeSchema({
     }
     const gets = values.TakerGets;
     const pays = values.TakerPays;
-    if (isAmount(gets) && isAmount(pays) && gets.mode === "xrp" && pays.mode === "xrp" && !isEmptyValue(gets) && !isEmptyValue(pays)) {
+    if (
+      isAmount(gets) &&
+      isAmount(pays) &&
+      gets.mode === "xrp" &&
+      pays.mode === "xrp" &&
+      !isEmptyValue(gets) &&
+      !isEmptyValue(pays)
+    ) {
       errors.TakerPays = "An offer can't trade XRP for XRP. Make one side an issued currency";
     }
     return errors;
@@ -865,7 +1119,11 @@ const offerCancel = makeSchema({
   category: "trust-dex",
   icon: "✕",
   fields: [
-    integer("OfferSequence", "Offer sequence", { required: true, min: 1, help: "The Sequence number of the transaction that created the offer." }),
+    integer("OfferSequence", "Offer sequence", {
+      required: true,
+      min: 1,
+      help: "The Sequence number of the transaction that created the offer.",
+    }),
   ],
   codecs: { OfferSequence: codec.int("OfferSequence") },
 });
@@ -877,13 +1135,33 @@ const nftMint = makeSchema({
   category: "nft",
   icon: "✦",
   fields: [
-    integer("NFTokenTaxon", "Taxon", { required: true, placeholder: "0", help: "Number you choose to group related NFTs (any value, 0 is fine)." }),
-    { name: "URI", label: "URI", kind: "text", placeholder: "ipfs://…", help: "Points to the NFT's metadata. Stored as hex, max 256 bytes." },
-    integer("TransferFee", "Transfer fee", { min: 0, max: 50000, placeholder: "0", help: "Royalty in 1/100,000 units (5000 = 5%). Needs Transferable." }),
-    toggle("Transferable", "Transferable", { help: "Allow the NFT to be traded between accounts." }),
+    integer("NFTokenTaxon", "Taxon", {
+      required: true,
+      placeholder: "0",
+      help: "Number you choose to group related NFTs (any value, 0 is fine).",
+    }),
+    {
+      name: "URI",
+      label: "URI",
+      kind: "text",
+      placeholder: "ipfs://…",
+      help: "Points to the NFT's metadata. Stored as hex, max 256 bytes.",
+    },
+    integer("TransferFee", "Transfer fee", {
+      min: 0,
+      max: 50000,
+      placeholder: "0",
+      help: "Royalty in 1/100,000 units (5000 = 5%). Needs Transferable.",
+    }),
+    toggle("Transferable", "Transferable", {
+      help: "Allow the NFT to be traded between accounts.",
+    }),
     toggle("Burnable", "Burnable", { help: "Allow the issuer to burn the NFT." }),
     toggle("OnlyXRP", "Only XRP", { help: "Only allow XRP for sales of this NFT." }),
-    address("Issuer", "Issuer", { advanced: true, help: "Mint on behalf of this account (requires it to authorize you)." }),
+    address("Issuer", "Issuer", {
+      advanced: true,
+      help: "Mint on behalf of this account (requires it to authorize you).",
+    }),
   ],
   codecs: {
     NFTokenTaxon: codec.int("NFTokenTaxon"),
@@ -914,7 +1192,10 @@ const nftBurn = makeSchema({
   icon: "✺",
   fields: [
     hex("NFTokenID", "NFT ID", { required: true, min: 64, max: 64, help: "64 hex characters." }),
-    address("Owner", "Owner", { advanced: true, help: "Current holder, if you are burning an NFT you issued but do not hold." }),
+    address("Owner", "Owner", {
+      advanced: true,
+      help: "Current holder, if you are burning an NFT you issued but do not hold.",
+    }),
   ],
   codecs: { NFTokenID: codec.hex("NFTokenID"), Owner: codec.string("Owner") },
 });
@@ -926,11 +1207,32 @@ const escrowCreate = makeSchema({
   category: "escrow-checks",
   icon: "◷",
   fields: [
-    address("Destination", "Destination", { required: true, help: "Receives the XRP when the escrow is finished." }),
-    { name: "Amount", label: "Amount", kind: "xrp", required: true, placeholder: "10", help: "XRP to lock up." },
-    dateField("FinishAfter", "Release after", "UTC date/time after which the escrow can be finished."),
-    dateField("CancelAfter", "Cancel after", "UTC date/time after which anyone can return the XRP to you."),
-    hex("Condition", "Condition", { advanced: true, help: "Crypto-condition (PREIMAGE-SHA-256) that must be fulfilled to finish." }),
+    address("Destination", "Destination", {
+      required: true,
+      help: "Receives the XRP when the escrow is finished.",
+    }),
+    {
+      name: "Amount",
+      label: "Amount",
+      kind: "xrp",
+      required: true,
+      placeholder: "10",
+      help: "XRP to lock up.",
+    },
+    dateField(
+      "FinishAfter",
+      "Release after",
+      "UTC date/time after which the escrow can be finished.",
+    ),
+    dateField(
+      "CancelAfter",
+      "Cancel after",
+      "UTC date/time after which anyone can return the XRP to you.",
+    ),
+    hex("Condition", "Condition", {
+      advanced: true,
+      help: "Crypto-condition (PREIMAGE-SHA-256) that must be fulfilled to finish.",
+    }),
     DESTINATION_TAG,
   ],
   codecs: {
@@ -965,10 +1267,23 @@ const escrowFinish = makeSchema({
   category: "escrow-checks",
   icon: "✓",
   fields: [
-    address("Owner", "Escrow owner", { required: true, help: "The account that created the escrow." }),
-    integer("OfferSequence", "Escrow sequence", { required: true, min: 1, help: "Sequence number of the EscrowCreate transaction." }),
-    hex("Condition", "Condition", { advanced: true, help: "Must match the escrow's condition. Use with the fulfillment." }),
-    hex("Fulfillment", "Fulfillment", { advanced: true, help: "Proof that satisfies the condition." }),
+    address("Owner", "Escrow owner", {
+      required: true,
+      help: "The account that created the escrow.",
+    }),
+    integer("OfferSequence", "Escrow sequence", {
+      required: true,
+      min: 1,
+      help: "Sequence number of the EscrowCreate transaction.",
+    }),
+    hex("Condition", "Condition", {
+      advanced: true,
+      help: "Must match the escrow's condition. Use with the fulfillment.",
+    }),
+    hex("Fulfillment", "Fulfillment", {
+      advanced: true,
+      help: "Proof that satisfies the condition.",
+    }),
   ],
   codecs: {
     Owner: codec.string("Owner"),
@@ -980,8 +1295,10 @@ const escrowFinish = makeSchema({
     const errors: FieldErrors = {};
     const hasCondition = !!str(values.Condition);
     const hasFulfillment = !!str(values.Fulfillment);
-    if (hasCondition && !hasFulfillment) errors.Fulfillment = "Provide the fulfillment for this condition";
-    if (hasFulfillment && !hasCondition) errors.Condition = "Provide the condition for this fulfillment";
+    if (hasCondition && !hasFulfillment)
+      errors.Fulfillment = "Provide the fulfillment for this condition";
+    if (hasFulfillment && !hasCondition)
+      errors.Condition = "Provide the condition for this fulfillment";
     return errors;
   },
 });
@@ -993,10 +1310,29 @@ const checkCreate = makeSchema({
   category: "escrow-checks",
   icon: "✎",
   fields: [
-    address("Destination", "Destination", { required: true, help: "The account that can cash the check." }),
-    { name: "SendMax", label: "Maximum amount", kind: "amount", required: true, help: "Most the destination can cash." },
-    dateField("Expiration", "Expires", "UTC date/time after which the check can no longer be cashed.", { advanced: true }),
-    hex("InvoiceID", "Invoice ID", { advanced: true, min: 64, max: 64, help: "256-bit (64 hex characters) identifier for your records." }),
+    address("Destination", "Destination", {
+      required: true,
+      help: "The account that can cash the check.",
+    }),
+    {
+      name: "SendMax",
+      label: "Maximum amount",
+      kind: "amount",
+      required: true,
+      help: "Most the destination can cash.",
+    },
+    dateField(
+      "Expiration",
+      "Expires",
+      "UTC date/time after which the check can no longer be cashed.",
+      { advanced: true },
+    ),
+    hex("InvoiceID", "Invoice ID", {
+      advanced: true,
+      min: 64,
+      max: 64,
+      help: "256-bit (64 hex characters) identifier for your records.",
+    }),
     DESTINATION_TAG,
   ],
   codecs: {
@@ -1037,8 +1373,15 @@ const escrowCancel = makeSchema({
   category: "escrow-checks",
   icon: "↺",
   fields: [
-    address("Owner", "Escrow owner", { required: true, help: "The account that created the escrow." }),
-    integer("OfferSequence", "Escrow sequence", { required: true, min: 1, help: "Sequence number (or ticket) of the EscrowCreate transaction. Only works after the escrow's cancel time." }),
+    address("Owner", "Escrow owner", {
+      required: true,
+      help: "The account that created the escrow.",
+    }),
+    integer("OfferSequence", "Escrow sequence", {
+      required: true,
+      min: 1,
+      help: "Sequence number (or ticket) of the EscrowCreate transaction. Only works after the escrow's cancel time.",
+    }),
   ],
   codecs: { Owner: codec.string("Owner"), OfferSequence: codec.int("OfferSequence") },
 });
@@ -1050,17 +1393,37 @@ const checkCash = makeSchema({
   category: "escrow-checks",
   icon: "✔",
   fields: [
-    hex("CheckID", "Check ID", { required: true, min: 64, max: 64, help: "64 hex characters: the ID of the Check object." }),
-    { name: "Amount", label: "Exact amount", kind: "amount", help: "Cash the check for exactly this much. Use this or a minimum, not both." },
-    { name: "DeliverMin", label: "Minimum amount", kind: "amount", help: "Cash for as much as possible, but at least this much. Use this or an exact amount, not both." },
+    hex("CheckID", "Check ID", {
+      required: true,
+      min: 64,
+      max: 64,
+      help: "64 hex characters: the ID of the Check object.",
+    }),
+    {
+      name: "Amount",
+      label: "Exact amount",
+      kind: "amount",
+      help: "Cash the check for exactly this much. Use this or a minimum, not both.",
+    },
+    {
+      name: "DeliverMin",
+      label: "Minimum amount",
+      kind: "amount",
+      help: "Cash for as much as possible, but at least this much. Use this or an exact amount, not both.",
+    },
   ],
-  codecs: { CheckID: codec.hex("CheckID"), Amount: codec.amount("Amount"), DeliverMin: codec.amount("DeliverMin") },
+  codecs: {
+    CheckID: codec.hex("CheckID"),
+    Amount: codec.amount("Amount"),
+    DeliverMin: codec.amount("DeliverMin"),
+  },
   validate(values) {
     const errors: FieldErrors = {};
     const hasAmount = !isEmptyValue(values.Amount);
     const hasMin = !isEmptyValue(values.DeliverMin);
     if (!hasAmount && !hasMin) errors.Amount = "Enter an exact amount or a minimum amount";
-    else if (hasAmount && hasMin) errors.DeliverMin = "Use either an exact amount or a minimum, not both";
+    else if (hasAmount && hasMin)
+      errors.DeliverMin = "Use either an exact amount or a minimum, not both";
     return errors;
   },
 });
@@ -1071,7 +1434,14 @@ const checkCancel = makeSchema({
   description: "Cancel a check you wrote or received.",
   category: "escrow-checks",
   icon: "⊘",
-  fields: [hex("CheckID", "Check ID", { required: true, min: 64, max: 64, help: "64 hex characters: the ID of the Check object." })],
+  fields: [
+    hex("CheckID", "Check ID", {
+      required: true,
+      min: 64,
+      max: 64,
+      help: "64 hex characters: the ID of the Check object.",
+    }),
+  ],
   codecs: { CheckID: codec.hex("CheckID") },
 });
 
@@ -1083,15 +1453,29 @@ const nftCreateOffer = makeSchema({
   icon: "⇆",
   fields: [
     hex("NFTokenID", "NFT ID", { required: true, min: 64, max: 64, help: "64 hex characters." }),
-    toggle("Sell", "This is a sell offer", { help: "On: you hold the NFT and are selling it. Off: you are offering to buy it from its owner." }),
+    toggle("Sell", "This is a sell offer", {
+      help: "On: you hold the NFT and are selling it. Off: you are offering to buy it from its owner.",
+    }),
     address("Owner", "NFT owner", {
       required: true,
       showWhen: { field: "Sell", equals: false },
       help: "The account that currently holds the NFT (buy offers only).",
     }),
-    { name: "Amount", label: "Price", kind: "amount", required: true, allowZero: true, help: "What is offered or asked. 0 XRP is only allowed on a sell offer (giving the NFT away)." },
-    address("Destination", "Only this account can accept", { advanced: true, help: "Restrict who may accept the offer." }),
-    dateField("Expiration", "Expires", "UTC date and time after which the offer is void.", { advanced: true }),
+    {
+      name: "Amount",
+      label: "Price",
+      kind: "amount",
+      required: true,
+      allowZero: true,
+      help: "What is offered or asked. 0 XRP is only allowed on a sell offer (giving the NFT away).",
+    },
+    address("Destination", "Only this account can accept", {
+      advanced: true,
+      help: "Restrict who may accept the offer.",
+    }),
+    dateField("Expiration", "Expires", "UTC date and time after which the offer is void.", {
+      advanced: true,
+    }),
   ],
   codecs: {
     NFTokenID: codec.hex("NFTokenID"),
@@ -1109,7 +1493,13 @@ const nftCreateOffer = makeSchema({
   validate(values) {
     const errors: FieldErrors = {};
     const amount = values.Amount;
-    if (values.Sell !== true && isAmount(amount) && amount.mode === "xrp" && Number(amount.value) === 0 && amount.value.trim() !== "") {
+    if (
+      values.Sell !== true &&
+      isAmount(amount) &&
+      amount.mode === "xrp" &&
+      Number(amount.value) === 0 &&
+      amount.value.trim() !== ""
+    ) {
       errors.Amount = "A buy offer needs a price above 0";
     }
     return errors;
@@ -1123,9 +1513,23 @@ const nftAcceptOffer = makeSchema({
   category: "nft",
   icon: "✓",
   fields: [
-    hex("NFTokenSellOffer", "Sell offer ID", { min: 64, max: 64, help: "64 hex characters. Accept a sell offer by itself (you buy the NFT)." }),
-    hex("NFTokenBuyOffer", "Buy offer ID", { min: 64, max: 64, help: "64 hex characters. Accept a buy offer by itself (you sell your NFT)." }),
-    { name: "NFTokenBrokerFee", label: "Broker fee", kind: "amount", advanced: true, help: "Brokered mode only (both offer IDs set): the amount you keep for matching the two offers." },
+    hex("NFTokenSellOffer", "Sell offer ID", {
+      min: 64,
+      max: 64,
+      help: "64 hex characters. Accept a sell offer by itself (you buy the NFT).",
+    }),
+    hex("NFTokenBuyOffer", "Buy offer ID", {
+      min: 64,
+      max: 64,
+      help: "64 hex characters. Accept a buy offer by itself (you sell your NFT).",
+    }),
+    {
+      name: "NFTokenBrokerFee",
+      label: "Broker fee",
+      kind: "amount",
+      advanced: true,
+      help: "Brokered mode only (both offer IDs set): the amount you keep for matching the two offers.",
+    },
   ],
   codecs: {
     NFTokenSellOffer: codec.hex("NFTokenSellOffer"),
@@ -1136,7 +1540,8 @@ const nftAcceptOffer = makeSchema({
     const errors: FieldErrors = {};
     const sell = !isEmptyValue(values.NFTokenSellOffer);
     const buy = !isEmptyValue(values.NFTokenBuyOffer);
-    if (!sell && !buy) errors.NFTokenSellOffer = "Enter a sell offer ID, a buy offer ID, or both (brokered)";
+    if (!sell && !buy)
+      errors.NFTokenSellOffer = "Enter a sell offer ID, a buy offer ID, or both (brokered)";
     if (!isEmptyValue(values.NFTokenBrokerFee) && !(sell && buy)) {
       errors.NFTokenBrokerFee = "A broker fee needs both a sell and a buy offer ID";
     }
@@ -1170,7 +1575,9 @@ const depositPreauth = makeSchema({
   category: "account",
   icon: "⛨",
   fields: [
-    address("Authorize", "Authorize account", { help: "Allow this account to pay you. Use this or 'Revoke', not both." }),
+    address("Authorize", "Authorize account", {
+      help: "Allow this account to pay you. Use this or 'Revoke', not both.",
+    }),
     address("Unauthorize", "Revoke account", { help: "Remove an earlier preauthorization." }),
   ],
   codecs: { Authorize: codec.string("Authorize"), Unauthorize: codec.string("Unauthorize") },
@@ -1213,7 +1620,8 @@ const signerListSet = makeSchema({
     const quorum = /^\d+$/.test(quorumText) ? Number(quorumText) : null;
     const lines = parseSignerLines(values.SignerEntries);
     if (quorum === 0) {
-      if (lines.length > 0) errors.SignerEntries = "Remove the signers to delete the list (quorum 0)";
+      if (lines.length > 0)
+        errors.SignerEntries = "Remove the signers to delete the list (quorum 0)";
       return errors;
     }
     if (quorum === null) return errors; // the quorum field reports its own error
@@ -1248,7 +1656,8 @@ const signerListSet = makeSchema({
       seen.add(line.account);
       total += Number(line.weight);
     }
-    if (quorum > total) errors.SignerQuorum = `Quorum can't exceed the total signer weight (${total})`;
+    if (quorum > total)
+      errors.SignerQuorum = `Quorum can't exceed the total signer weight (${total})`;
     return errors;
   },
 });
@@ -1301,14 +1710,23 @@ export function defaultValues(schema: TxSchema): FormValues {
   return values;
 }
 
-export function validateValues(schema: TxSchema, values: FormValues, ctx?: ValidateContext): FieldErrors {
+export function validateValues(
+  schema: TxSchema,
+  values: FormValues,
+  ctx?: ValidateContext,
+): FieldErrors {
   const errors: FieldErrors = {};
   for (const f of schema.fields) {
     if (!isFieldActive(f, values)) continue;
     const v = values[f.name];
     if (isEmptyValue(v)) {
       if (f.required) errors[f.name] = `${f.label} is required`;
-      else if (f.kind === "amount" && isAmount(v) && v.mode === "issued" && ((v.currency ?? "").trim() || (v.issuer ?? "").trim())) {
+      else if (
+        f.kind === "amount" &&
+        isAmount(v) &&
+        v.mode === "issued" &&
+        ((v.currency ?? "").trim() || (v.issuer ?? "").trim())
+      ) {
         errors[f.name] = "Enter an amount";
       }
       continue;

@@ -98,7 +98,9 @@ export function TxForm({
 
   // One error is announced assertively (the first in reading order); the rest are counted
   // politely in a single live region so several errors don't all fire at once.
-  const shownErrorNames = [...main, ...advanced].filter((f) => !!shownError(f.name)).map((f) => f.name);
+  const shownErrorNames = [...main, ...advanced]
+    .filter((f) => !!shownError(f.name))
+    .map((f) => f.name);
   const alertName = shownErrorNames[0] ?? null;
   const others = Math.max(shownErrorNames.length - 1, 0);
 

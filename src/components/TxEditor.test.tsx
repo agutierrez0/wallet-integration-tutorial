@@ -26,7 +26,10 @@ const PAYMENT = JSON.stringify({
   Destination: "rPT1Sjq2YGrBMTttX4GZHjKu9dyfzbpAYe",
   Amount: "1000000",
 });
-const ACCOUNT_SET = JSON.stringify({ TransactionType: "AccountSet", Domain: "6578616D706C652E636F6D" });
+const ACCOUNT_SET = JSON.stringify({
+  TransactionType: "AccountSet",
+  Domain: "6578616D706C652E636F6D",
+});
 
 describe("TxEditor", () => {
   it("asks for a type and disables Sign when nothing is selected", () => {
@@ -74,14 +77,22 @@ describe("hidden fields never reach the built tx", () => {
     icon: "F",
     fields: [
       { name: "mode", kind: "toggle", label: "Advanced mode" },
-      { name: "secret", kind: "text", label: "Only in advanced mode", showWhen: { field: "mode", equals: true } },
+      {
+        name: "secret",
+        kind: "text",
+        label: "Only in advanced mode",
+        showWhen: { field: "mode", equals: true },
+      },
     ],
     build: (v, account) => ({ TransactionType: "Fake", Account: account, ...v }),
   };
 
   it("drops values whose showWhen is inactive", () => {
     expect(activeValues(schema, { mode: false, secret: "leak" })).toEqual({ mode: false });
-    expect(activeValues(schema, { mode: true, secret: "kept" })).toEqual({ mode: true, secret: "kept" });
+    expect(activeValues(schema, { mode: true, secret: "kept" })).toEqual({
+      mode: true,
+      secret: "kept",
+    });
   });
 
   it("builds text without them", () => {

@@ -4,8 +4,9 @@ import type { WalletPrompt } from "./types";
 
 const postBody = (n = 0) =>
   JSON.parse(
-    (fetch as unknown as ReturnType<typeof vi.fn>).mock.calls.filter((c) => c[1]?.method === "POST")[n][1]
-      .body,
+    (fetch as unknown as ReturnType<typeof vi.fn>).mock.calls.filter(
+      (c) => c[1]?.method === "POST",
+    )[n][1].body,
   );
 
 const json = (body: unknown, status = 200) =>
@@ -133,7 +134,10 @@ describe("xaman adapter", () => {
   });
 
   it("reports an unreachable backend clearly", async () => {
-    vi.stubGlobal("fetch", vi.fn(async () => Promise.reject(new TypeError("fetch failed"))));
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => Promise.reject(new TypeError("fetch failed"))),
+    );
     await expect(adapter().connect(ctx)).rejects.toMatchObject({
       code: "UNKNOWN",
       message: expect.stringContaining("signing backend"),
@@ -164,7 +168,10 @@ describe("xaman adapter", () => {
     expect(await a.isAvailable()).toBe(true);
     expect(a.unavailableReason).toBeUndefined();
 
-    vi.stubGlobal("fetch", vi.fn(async () => Promise.reject(new TypeError("down"))));
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => Promise.reject(new TypeError("down"))),
+    );
     expect(await a.isAvailable()).toBe(false);
     expect(a.unavailableReason).toBe("backend not running");
   });
@@ -172,7 +179,9 @@ describe("xaman adapter", () => {
   it("requires a network and never creates a payload without one", async () => {
     const calls = mockFetch({});
     await expect(adapter().connect()).rejects.toMatchObject({ code: "UNKNOWN" });
-    await expect(adapter().signTransaction({ TransactionType: "AccountSet" })).rejects.toMatchObject({
+    await expect(
+      adapter().signTransaction({ TransactionType: "AccountSet" }),
+    ).rejects.toMatchObject({
       code: "UNKNOWN",
     });
     expect(calls).toEqual([]);
@@ -225,7 +234,10 @@ describe("xaman adapter", () => {
     const ac = new AbortController();
     ac.abort();
     await expect(
-      adapter().signTransaction({ TransactionType: "AccountSet" }, { network: "testnet", signal: ac.signal }),
+      adapter().signTransaction(
+        { TransactionType: "AccountSet" },
+        { network: "testnet", signal: ac.signal },
+      ),
     ).rejects.toMatchObject({ code: "CANCELLED" });
     expect(calls).toEqual([]);
   });
@@ -257,7 +269,11 @@ describe("xaman adapter", () => {
       "POST /api/xaman/payload": [() => json(created())],
       "GET /api/xaman/payload/u-1": [
         () =>
-          json(approved ? { uuid: "u-1", status: "signed", hex: "BEEF" } : { uuid: "u-1", status: "opened" }),
+          json(
+            approved
+              ? { uuid: "u-1", status: "signed", hex: "BEEF" }
+              : { uuid: "u-1", status: "opened" },
+          ),
       ],
       "DELETE /api/xaman/payload/u-1": [
         () =>
@@ -290,10 +306,7 @@ describe("xaman adapter", () => {
 
   it("a newer request withdraws the older one from the phone", async () => {
     const calls = mockFetch({
-      "POST /api/xaman/payload": [
-        () => json(created()),
-        () => json({ ...created(), uuid: "u-2" }),
-      ],
+      "POST /api/xaman/payload": [() => json(created()), () => json({ ...created(), uuid: "u-2" })],
       "GET /api/xaman/payload/u-1": [() => json({ uuid: "u-1", status: "pending" })],
       "GET /api/xaman/payload/u-2": [
         () => json({ uuid: "u-2", status: "signed", account: "rNew" }),
@@ -331,7 +344,9 @@ describe("xaman adapter", () => {
     });
 
     vi.unstubAllGlobals();
-    mockFetch({ "POST /api/xaman/payload": [() => json({ error: { code: "RATE_LIMITED" } }, 429)] });
+    mockFetch({
+      "POST /api/xaman/payload": [() => json({ error: { code: "RATE_LIMITED" } }, 429)],
+    });
     await expect(adapter().connect(ctx)).rejects.toMatchObject({
       message: expect.stringContaining("Too many requests"),
     });

@@ -24,7 +24,9 @@ describe("pollTxResult", () => {
   });
 
   it("keeps polling a found-but-unvalidated tx and returns it if it never validates", async () => {
-    const lookup = vi.fn().mockResolvedValue({ found: true, validated: false, engineResult: "tesSUCCESS" });
+    const lookup = vi
+      .fn()
+      .mockResolvedValue({ found: true, validated: false, engineResult: "tesSUCCESS" });
     const r = await pollTxResult("testnet", "AB", { lookup, attempts: 2, sleep: noSleep });
     expect(r).toMatchObject({ found: true, validated: false });
     expect(lookup).toHaveBeenCalledTimes(2);

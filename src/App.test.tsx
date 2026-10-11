@@ -62,8 +62,12 @@ vi.mock("./components/TxEditor", async () => {
           data-signing={String(p.signing)}
           data-reason={p.disabledReason ?? ""}
         >
-          <button type="button" onClick={p.onSign}>sign</button>
-          <button type="button" onClick={p.onCancel}>cancel-editor</button>
+          <button type="button" onClick={p.onSign}>
+            sign
+          </button>
+          <button type="button" onClick={p.onCancel}>
+            cancel-editor
+          </button>
         </div>
       );
     },
@@ -72,7 +76,9 @@ vi.mock("./components/TxEditor", async () => {
 vi.mock("./components/QrPrompt", () => ({
   QrPrompt: (p: { onCancel: () => void }) => (
     <div data-testid="qr">
-      <button type="button" onClick={p.onCancel}>qr-cancel</button>
+      <button type="button" onClick={p.onCancel}>
+        qr-cancel
+      </button>
     </div>
   ),
 }));
@@ -108,7 +114,9 @@ function deferred<T>() {
 const SUBMIT_OK = { result: { validated: true, meta: { TransactionResult: "tesSUCCESS" } } };
 
 beforeEach(() => {
-  h.adapter.connect.mockReset().mockResolvedValue({ address: wallet.address, networkHint: "Testnet" });
+  h.adapter.connect
+    .mockReset()
+    .mockResolvedValue({ address: wallet.address, networkHint: "Testnet" });
   h.adapter.signTransaction.mockReset().mockResolvedValue(BLOB);
   h.adapter.submitTransaction.mockReset().mockResolvedValue("AB".repeat(32));
   h.adapter.cancel.mockReset().mockResolvedValue({ cancelled: true });
@@ -249,7 +257,9 @@ describe("network guard", () => {
   it("warns and blocks signing when the wallet is on another network", async () => {
     h.adapter.connect.mockResolvedValue({ address: wallet.address, networkHint: "Devnet" });
     await connectWallet();
-    expect(await screen.findByText(/Your wallet is on Devnet but the app is on Testnet/)).toBeTruthy();
+    expect(
+      await screen.findByText(/Your wallet is on Devnet but the app is on Testnet/),
+    ).toBeTruthy();
     expect(editor().getAttribute("data-reason")).toMatch(/Devnet/);
   });
 
@@ -286,7 +296,9 @@ describe("signed blob safety", () => {
     await connectWallet();
     await signTx();
     expect(screen.queryByText(/doesn't match what you built/)).toBeNull();
-    expect((screen.getByRole("button", { name: "Submit with xrpl.js" }) as HTMLButtonElement).disabled).toBe(false);
+    expect(
+      (screen.getByRole("button", { name: "Submit with xrpl.js" }) as HTMLButtonElement).disabled,
+    ).toBe(false);
   });
 });
 

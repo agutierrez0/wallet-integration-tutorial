@@ -17,17 +17,31 @@
 .ts-chip-wrap,
 .ts-picker-wrap {
   display: grid;
-  transition: grid-template-rows 0.3s var(--ts-ease), opacity 0.2s ease;
+  transition:
+    grid-template-rows 0.3s var(--ts-ease),
+    opacity 0.2s ease;
 }
 .ts-chip-clip,
 .ts-picker-clip {
   overflow: hidden;
   min-height: 0;
 }
-.ts[data-open="false"] .ts-chip-wrap { grid-template-rows: 1fr; opacity: 1; }
-.ts[data-open="false"] .ts-picker-wrap { grid-template-rows: 0fr; opacity: 0; }
-.ts[data-open="true"] .ts-chip-wrap { grid-template-rows: 0fr; opacity: 0; }
-.ts[data-open="true"] .ts-picker-wrap { grid-template-rows: 1fr; opacity: 1; }
+.ts[data-open="false"] .ts-chip-wrap {
+  grid-template-rows: 1fr;
+  opacity: 1;
+}
+.ts[data-open="false"] .ts-picker-wrap {
+  grid-template-rows: 0fr;
+  opacity: 0;
+}
+.ts[data-open="true"] .ts-chip-wrap {
+  grid-template-rows: 0fr;
+  opacity: 0;
+}
+.ts[data-open="true"] .ts-picker-wrap {
+  grid-template-rows: 1fr;
+  opacity: 1;
+}
 
 /* ---- chip (collapsed) ---- */
 .ts-chip {
@@ -39,8 +53,15 @@
   border-radius: 12px;
   background: var(--ts-tint);
 }
-.ts-chip-text { display: flex; flex-direction: column; min-width: 0; flex: 1; }
-.ts-chip-title { font-weight: 600; }
+.ts-chip-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  flex: 1;
+}
+.ts-chip-title {
+  font-weight: 600;
+}
 .ts-chip-title code {
   margin-left: 0.35rem;
   padding: 0.05rem 0.4rem;
@@ -68,15 +89,30 @@
   font: inherit;
   font-size: 0.875rem;
   cursor: pointer;
-  transition: border-color 0.15s, transform 0.15s;
+  transition:
+    border-color 0.15s,
+    transform 0.15s;
 }
-.ts-change:hover:not(:disabled) { border-color: var(--ts-accent); }
-.ts-change:active:not(:disabled) { transform: scale(0.97); }
+.ts-change:hover:not(:disabled) {
+  border-color: var(--ts-accent);
+}
+.ts-change:active:not(:disabled) {
+  transform: scale(0.97);
+}
 
 /* ---- picker (expanded) ---- */
-.ts-picker { padding: 2px; display: flex; flex-direction: column; gap: 0.75rem; }
+.ts-picker {
+  padding: 2px;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
 
-.ts-search { position: relative; display: flex; align-items: center; }
+.ts-search {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
 .ts-search input {
   width: 100%;
   min-height: 48px;
@@ -87,15 +123,28 @@
   color: var(--ts-text);
   font: inherit;
   font-size: 16px; /* 16px stops iOS from zooming on focus */
-  transition: border-color 0.15s, box-shadow 0.15s;
+  transition:
+    border-color 0.15s,
+    box-shadow 0.15s;
 }
-.ts-search input::placeholder { color: var(--ts-muted); }
-.ts-search input:focus { outline: none; }
+.ts-search input::placeholder {
+  color: var(--ts-muted);
+}
+.ts-search input:focus {
+  outline: none;
+}
 .ts-search input:focus-visible {
   border-color: var(--ts-accent);
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--ts-accent) 30%, transparent);
 }
-.ts-search-icon { position: absolute; left: 0.85rem; width: 18px; height: 18px; color: var(--ts-muted); pointer-events: none; }
+.ts-search-icon {
+  position: absolute;
+  left: 0.85rem;
+  width: 18px;
+  height: 18px;
+  color: var(--ts-muted);
+  pointer-events: none;
+}
 .ts-kbd {
   position: absolute;
   right: 0.8rem;
@@ -123,9 +172,16 @@
   line-height: 1;
   cursor: pointer;
 }
-.ts-clear:hover:not(:disabled) { color: var(--ts-text); background: var(--ts-code); }
+.ts-clear:hover:not(:disabled) {
+  color: var(--ts-text);
+  background: var(--ts-code);
+}
 
-.ts-chips { display: flex; flex-wrap: wrap; gap: 0.4rem; }
+.ts-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
 .ts-cat {
   min-height: 36px;
   padding: 0 0.85rem;
@@ -136,10 +192,19 @@
   font: inherit;
   font-size: 0.85rem;
   cursor: pointer;
-  transition: background 0.15s, color 0.15s, border-color 0.15s, transform 0.15s;
+  transition:
+    background 0.15s,
+    color 0.15s,
+    border-color 0.15s,
+    transform 0.15s;
 }
-.ts-cat:hover:not(:disabled) { border-color: var(--ts-accent); color: var(--ts-text); }
-.ts-cat:active:not(:disabled) { transform: scale(0.97); }
+.ts-cat:hover:not(:disabled) {
+  border-color: var(--ts-accent);
+  color: var(--ts-text);
+}
+.ts-cat:active:not(:disabled) {
+  transform: scale(0.97);
+}
 .ts-cat[aria-pressed="true"] {
   background: var(--ts-accent);
   border-color: var(--ts-accent);
@@ -148,14 +213,23 @@
 
 .ts-status {
   position: absolute;
-  width: 1px; height: 1px;
+  width: 1px;
+  height: 1px;
   overflow: hidden;
   clip-path: inset(50%);
   white-space: nowrap;
 }
 
-.ts-list { max-height: min(60vh, 520px); overflow-y: auto; padding: 2px; margin: -2px; scroll-padding: 0.5rem; }
-.ts-section + .ts-section { margin-top: 1rem; }
+.ts-list {
+  max-height: min(60vh, 520px);
+  overflow-y: auto;
+  padding: 2px;
+  margin: -2px;
+  scroll-padding: 0.5rem;
+}
+.ts-section + .ts-section {
+  margin-top: 1rem;
+}
 .ts-section-title {
   margin: 0 0 0.5rem;
   color: var(--ts-muted);
@@ -164,7 +238,11 @@
   letter-spacing: 0.06em;
   text-transform: uppercase;
 }
-.ts-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 0.5rem; }
+.ts-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+  gap: 0.5rem;
+}
 
 .ts-card {
   display: flex;
@@ -176,7 +254,11 @@
   border-radius: 12px;
   background: var(--ts-bg);
   cursor: pointer;
-  transition: border-color 0.15s, background 0.15s, transform 0.15s, box-shadow 0.15s;
+  transition:
+    border-color 0.15s,
+    background 0.15s,
+    transform 0.15s,
+    box-shadow 0.15s;
   animation: ts-in 0.22s var(--ts-ease) both;
 }
 .ts-card[data-active] {
@@ -185,8 +267,12 @@
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--ts-accent) 22%, transparent);
   transform: translateY(-1px);
 }
-.ts-card[aria-selected="true"] { border-color: var(--ts-accent); }
-.ts-card:active { transform: scale(0.985); }
+.ts-card[aria-selected="true"] {
+  border-color: var(--ts-accent);
+}
+.ts-card:active {
+  transform: scale(0.985);
+}
 .ts-icon {
   flex: none;
   display: grid;
@@ -199,19 +285,49 @@
   font-weight: 700;
   font-size: 0.95rem;
 }
-.ts-card-text { display: flex; flex-direction: column; gap: 0.1rem; min-width: 0; }
-.ts-card-title { font-weight: 600; }
-.ts-card-desc { color: var(--ts-muted); font-size: 0.85rem; line-height: 1.3; }
+.ts-card-text {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  min-width: 0;
+}
+.ts-card-title {
+  font-weight: 600;
+}
+.ts-card-desc {
+  color: var(--ts-muted);
+  font-size: 0.85rem;
+  line-height: 1.3;
+}
 
-.ts-empty { display: flex; flex-direction: column; align-items: flex-start; gap: 0.5rem; padding: 1rem 0.25rem; color: var(--ts-muted); }
-.ts-empty p { margin: 0; }
+.ts-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.5rem;
+  padding: 1rem 0.25rem;
+  color: var(--ts-muted);
+}
+.ts-empty p {
+  margin: 0;
+}
 
-.ts[data-disabled] { opacity: 0.6; }
-.ts[data-disabled] .ts-card { cursor: not-allowed; }
+.ts[data-disabled] {
+  opacity: 0.6;
+}
+.ts[data-disabled] .ts-card {
+  cursor: not-allowed;
+}
 
 @keyframes ts-in {
-  from { opacity: 0; transform: translateY(4px); }
-  to { opacity: 1; transform: none; }
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
 }
 
 /* Visible focus for keyboard users on every control. */
@@ -221,13 +337,28 @@
 }
 
 @media (max-width: 560px) {
-  .ts-grid { grid-template-columns: 1fr; }
-  .ts-card { min-height: 60px; padding: 0.8rem; }
-  .ts-chip { flex-wrap: wrap; }
-  .ts-chip-desc { white-space: normal; }
-  .ts-kbd { display: none; }
-  .ts-search input { padding-right: 1rem; }
-  .ts-list { max-height: 55vh; }
+  .ts-grid {
+    grid-template-columns: 1fr;
+  }
+  .ts-card {
+    min-height: 60px;
+    padding: 0.8rem;
+  }
+  .ts-chip {
+    flex-wrap: wrap;
+  }
+  .ts-chip-desc {
+    white-space: normal;
+  }
+  .ts-kbd {
+    display: none;
+  }
+  .ts-search input {
+    padding-right: 1rem;
+  }
+  .ts-list {
+    max-height: 55vh;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -236,6 +367,14 @@
   .ts-card,
   .ts-cat,
   .ts-change,
-  .ts-search input { transition: none; animation: none; }
-  .ts-card[data-active], .ts-card:active, .ts-cat:active, .ts-change:active { transform: none; }
+  .ts-search input {
+    transition: none;
+    animation: none;
+  }
+  .ts-card[data-active],
+  .ts-card:active,
+  .ts-cat:active,
+  .ts-change:active {
+    transform: none;
+  }
 }
