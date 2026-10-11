@@ -148,3 +148,13 @@ main > .ui-alert { margin-top: 16px; }
 .qr-actions { justify-content: center; margin-top: 12px; }
 .qr-actions a.ui-btn { text-decoration: none; }
 .wallet-hint { margin: 0; }
+
+/* Transaction builder */
+.tx-builder { display: flex; flex-direction: column; gap: 14px; margin-bottom: 8px; }
+.tx-builder .copy-block pre { max-height: 260px; overflow: auto; }
+button[aria-pressed="true"].small { border-color: var(--accent, currentColor); }
+.ui-btn.is-soft-disabled { opacity: 0.55; cursor: not-allowed; }
+.ui-btn.is-soft-disabled:hover { filter: none; }
+
+.card:focus { outline: none; }
+.card:focus-visible { outline: 2px solid var(--accent, #d4a843); outline-offset: 2px; }

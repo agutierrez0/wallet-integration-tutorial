@@ -1,0 +1,83 @@
+import type { TxJson } from "./tx";
+
+// One schema per XRPL transaction type. The form UI is generated from `fields`;
+// `build` turns form values into the tx JSON that gets autofilled and signed.
+
+export type CategoryId = "payments" | "account" | "trust-dex" | "nft" | "escrow-checks";
+
+export interface Category {
+  id: CategoryId;
+  label: string;
+}
+
+export type FieldKind =
+  | "address" // classic r-address
+  | "xrp" // human XRP amount (e.g. "1.5"); build() converts to drops
+  | "amount" // XRP or issued currency (AmountValue)
+  | "text" // free text
+  | "hex" // raw hex string
+  | "integer" // non-negative integer
+  | "select"
+  | "toggle"
+  | "currency"; // 3-char code or 40-hex code
+
+export interface FieldOption {
+  value: string;
+  label: string;
+  help?: string;
+}
+
+export interface AmountValue {
+  mode: "xrp" | "issued";
+  value: string; // XRP (not drops) when mode is "xrp"
+  currency?: string; // issued only
+  issuer?: string; // issued only
+}
+
+export type FieldValue = string | boolean | AmountValue | undefined;
+export type FormValues = Record<string, FieldValue>;
+
+export interface FieldDef {
+  name: string; // key in FormValues
+  label: string;
+  kind: FieldKind;
+  required?: boolean;
+  advanced?: boolean; // collapsed under "Advanced"
+  placeholder?: string;
+  help?: string;
+  options?: FieldOption[]; // for kind "select"
+  default?: FieldValue;
+  min?: number;
+  max?: number;
+  // Only show/require this field while another field has the given value.
+  showWhen?: { field: string; equals: string | boolean };
+}
+
+export interface TxSchema {
+  type: string; // TransactionType, e.g. "Payment"
+  label: string;
+  description: string; // one line, plain language
+  category: CategoryId;
+  icon: string; // a short glyph or 1-2 characters, no image assets
+  fields: FieldDef[];
+  // Pure. Omits empty optional fields. Converts XRP -> drops, text -> hex, toggles -> flags.
+  build(values: FormValues, account: string): TxJson;
+  // Reverse of build, for round-tripping edited raw JSON back into the form.
+  // Return null if the tx can't be represented (UI then shows "custom JSON").
+  parse?(tx: TxJson): FormValues | null;
+  // Cross-field checks beyond required/kind validation. Returns { fieldName: message }.
+  validate?(values: FormValues): Record<string, string>;
+}
+
+export type FieldErrors = Record<string, string>;
+
+/*
+ * Runtime API of src/lib/txSchemas.ts (implemented separately):
+ *   SCHEMAS: TxSchema[]
+ *   CATEGORIES: Category[]
+ *   getSchema(type: string): TxSchema | undefined
+ *   defaultValues(schema: TxSchema): FormValues
+ *   validateValues(schema: TxSchema, values: FormValues): FieldErrors   // required + per-kind + schema.validate
+ *   buildTx(schema: TxSchema, values: FormValues, account: string): TxJson
+ *   valuesFromTx(tx: TxJson): { schema: TxSchema; values: FormValues } | null
+ */
