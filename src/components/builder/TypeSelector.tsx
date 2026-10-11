@@ -94,6 +94,7 @@ export function TypeSelector({ schemas, categories, value, onSelect, disabled }:
   const flat = useMemo(() => sections.flatMap((s) => s.items), [sections]);
   const activeSchema = flat[Math.min(activeIndex, Math.max(flat.length - 1, 0))];
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: query and category are triggers that reset the highlighted card
   useEffect(() => {
     setActiveIndex(0);
   }, [query, category]);
@@ -292,10 +293,11 @@ export function TypeSelector({ schemas, categories, value, onSelect, disabled }:
                   ×
                 </button>
               ) : (
-                <kbd className="ts-kbd" aria-hidden="true">/</kbd>
+                <span className="ts-kbd" aria-hidden="true">/</span>
               )}
             </div>
 
+            {/* biome-ignore lint/a11y/useSemanticElements: labelled filter-chip strip; a <fieldset> would add a border/legend box that breaks the chip layout */}
             <div className="ts-chips" role="group" aria-label="Filter by category">
               {[{ id: "all" as const, label: "All" }, ...categories].map((c) => (
                 <button
@@ -337,6 +339,7 @@ export function TypeSelector({ schemas, categories, value, onSelect, disabled }:
                 </div>
               )}
               {sections.map((section) => (
+                // biome-ignore lint/a11y/useSemanticElements: labelled option group inside a listbox; <fieldset> is not valid inside role=listbox
                 <div
                   key={section.id}
                   role="group"
@@ -349,6 +352,8 @@ export function TypeSelector({ schemas, categories, value, onSelect, disabled }:
                       flatIndex += 1;
                       const index = flatIndex;
                       return (
+                        // biome-ignore lint/a11y/useFocusableInteractive: options are not focusable by design; focus stays in the search input and the active option is exposed via aria-activedescendant
+                        // biome-ignore lint/a11y/useKeyWithClickEvents: keyboard selection (arrows/Enter) is handled on the search input that owns focus
                         <div
                           key={s.type}
                           id={optionId(s.type)}

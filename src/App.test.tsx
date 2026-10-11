@@ -62,8 +62,8 @@ vi.mock("./components/TxEditor", async () => {
           data-signing={String(p.signing)}
           data-reason={p.disabledReason ?? ""}
         >
-          <button onClick={p.onSign}>sign</button>
-          <button onClick={p.onCancel}>cancel-editor</button>
+          <button type="button" onClick={p.onSign}>sign</button>
+          <button type="button" onClick={p.onCancel}>cancel-editor</button>
         </div>
       );
     },
@@ -72,7 +72,7 @@ vi.mock("./components/TxEditor", async () => {
 vi.mock("./components/QrPrompt", () => ({
   QrPrompt: (p: { onCancel: () => void }) => (
     <div data-testid="qr">
-      <button onClick={p.onCancel}>qr-cancel</button>
+      <button type="button" onClick={p.onCancel}>qr-cancel</button>
     </div>
   ),
 }));

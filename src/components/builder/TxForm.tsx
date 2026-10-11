@@ -82,6 +82,7 @@ export function TxForm({
   const [advancedOpen, setAdvancedOpen] = useState(false);
 
   // A different transaction type (or an explicit reset) is a fresh form: forget what was touched.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: schema.type and resetKey are reset triggers, not values read inside
   useEffect(() => {
     setTouched(new Set());
     setAdvancedOpen(false);
@@ -141,8 +142,9 @@ export function TxForm({
             <summary>
               Advanced options
               {advancedFilled > 0 && (
-                <span className="txf-count" aria-label={`${advancedFilled} filled`}>
+                <span className="txf-count">
                   {advancedFilled}
+                  <span className="txf-sr"> filled</span>
                 </span>
               )}
             </summary>

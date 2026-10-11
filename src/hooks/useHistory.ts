@@ -7,7 +7,8 @@ const EMPTY: HistoryEntry[] = [];
 // Created on first use so importing this module never touches localStorage.
 let store: HistoryStore | null = null;
 function getStore(): HistoryStore {
-  return (store ??= createHistoryStore());
+  store ??= createHistoryStore();
+  return store;
 }
 
 export function useHistory() {

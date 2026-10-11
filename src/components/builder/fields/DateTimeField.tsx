@@ -34,7 +34,7 @@ export function DateTimeField({ def, value, onChange, onBlur, error, disabled }:
               value={v}
               disabled={disabled}
               aria-invalid={invalid || undefined}
-              aria-required={required || undefined}
+              required={required || undefined}
               aria-describedby={describedBy}
               onChange={(e) => onChange(e.target.value)}
               onBlur={onBlur}

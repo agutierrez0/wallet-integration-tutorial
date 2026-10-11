@@ -148,6 +148,7 @@ export function TxEditor({
   );
 
   // Keep the signed text in step with the connected account.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: must fire only when the account changes, not on every edit
   useEffect(() => {
     if (raw || !schema) return;
     if (preview !== value) onChange(preview);
@@ -155,6 +156,7 @@ export function TxEditor({
 
   // Load a transaction handed over from outside (history). Falls back to raw mode
   // when its type has no form or it can't be represented.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: keyed on the request nonce only (handledNonce guards repeats)
   useEffect(() => {
     if (!loadRequest || loadRequest.nonce === handledNonce.current) return;
     handledNonce.current = loadRequest.nonce;

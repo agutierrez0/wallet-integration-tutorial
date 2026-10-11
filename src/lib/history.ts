@@ -267,7 +267,9 @@ export function createHistoryStore(options?: {
   // null means "stale, reload on next read". Reads keep the same array until a change.
   let snapshot: HistoryEntry[] | null = null;
 
-  const emit = () => listeners.forEach((l) => l());
+  const emit = () => {
+    for (const l of listeners) l();
+  };
   const commit = (next: HistoryEntry[]) => {
     snapshot = next;
     emit();

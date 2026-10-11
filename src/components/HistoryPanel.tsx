@@ -322,6 +322,7 @@ export function HistoryPanel({
                 </button>
               )}
               {confirming ? (
+                // biome-ignore lint/a11y/useSemanticElements: inline confirm strip; <fieldset> default box/legend would change the layout, role=group with a name is equivalent
                 <span className="hp-confirm" role="group" aria-label="Confirm clear history">
                   <span>Clear all {entries.length}?</span>
                   <button
