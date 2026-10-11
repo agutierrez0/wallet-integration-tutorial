@@ -2,6 +2,7 @@ import { useMemo } from "react";
 import type { UseAction } from "../hooks/useAction";
 import { toUserError } from "../lib/errors";
 import type { Network } from "../lib/networks";
+import { resultCode } from "../lib/historyEntries";
 import { explainResult } from "../lib/resultCodes";
 import {
   curlFor,
@@ -30,16 +31,7 @@ interface Props {
 
 const pretty = (v: unknown) => JSON.stringify(v, null, 2);
 
-// Pulls the transaction result code out of an xrpl.js submitAndWait response.
-export function resultCode(res: unknown): string | undefined {
-  const r = (res as { result?: { engine_result?: unknown; meta?: unknown } } | null)?.result;
-  if (typeof r?.engine_result === "string") return r.engine_result;
-  const meta = r?.meta;
-  if (meta && typeof meta === "object" && "TransactionResult" in meta) {
-    return String((meta as { TransactionResult: unknown }).TransactionResult);
-  }
-  return undefined;
-}
+export { resultCode };
 
 const TONE: Record<string, PillTone> = {
   success: "success",

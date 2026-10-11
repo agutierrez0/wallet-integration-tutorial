@@ -1,13 +1,25 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { ADAPTERS } from "./wallets";
 import type { WalletPrompt } from "./wallets";
 import { useAction } from "./hooks/useAction";
+import { useHistory } from "./hooks/useHistory";
 import { NETWORKS } from "./lib/networks";
 import type { NetworkId } from "./lib/networks";
 import { toUserError } from "./lib/errors";
 import { explainResult } from "./lib/resultCodes";
+import { lookupTx } from "./lib/history";
 import {
-  TEMPLATES,
+  entryFromSigned,
+  newEntryId,
+  patchFromLookup,
+  patchFromSubmitFailure,
+  patchFromWalletSubmit,
+  patchFromXrplJsSubmit,
+  prepareRestore,
+} from "./lib/historyEntries";
+import type { RestoreNotice } from "./lib/historyEntries";
+import type { HistoryEntry } from "./lib/historyTypes";
+import {
   autofillTx,
   fundFromFaucet,
   parseTx,
@@ -18,12 +30,15 @@ import { NetworkBar } from "./components/NetworkBar";
 import { WalletPicker } from "./components/WalletPicker";
 import { TxEditor } from "./components/TxEditor";
 import { QrPrompt } from "./components/QrPrompt";
+import { HistoryPanel } from "./components/HistoryPanel";
 import { SignedOutput, resultCode } from "./components/SignedOutput";
 import { Alert, SkeletonBlock, Steps, stepsAt } from "./components/ui";
 
 interface Signed {
   blob: string;
   filled: TxJson;
+  // The history row for this signature (recorded once the sign succeeds).
+  entry: HistoryEntry;
 }
 
 type SignPhase = "autofill" | "wallet";
@@ -39,12 +54,19 @@ export default function App() {
   const [networkId, setNetworkId] = useState<NetworkId>("testnet");
   const [mainnetOk, setMainnetOk] = useState(false);
   const [adapterId, setAdapterId] = useState("");
-  const [txText, setTxText] = useState(JSON.stringify(TEMPLATES.AccountSet, null, 2));
+  const [txText, setTxText] = useState("");
   const [signPhase, setSignPhase] = useState<SignPhase>("autofill");
   // Extensions inject late, so we re-check shortly after load.
   const [lateAvailable, setLateAvailable] = useState<Record<string, boolean> | null>(null);
 
   const [prompt, setPrompt] = useState<WalletPrompt | null>(null);
+
+  const history = useHistory();
+  // Always the latest rows, for effects that run after a click.
+  const entriesRef = useRef(history.entries);
+  entriesRef.current = history.entries;
+  const [loadRequest, setLoadRequest] = useState({ nonce: 0, text: "" });
+  const [notices, setNotices] = useState<RestoreNotice[]>([]);
 
   const network = NETWORKS[networkId];
   const adapter = ADAPTERS.find((a) => a.id === adapterId);
@@ -89,11 +111,23 @@ export default function App() {
   const sign = useAction(async (): Promise<Signed> => {
     if (!adapter || !session) throw new Error("Connect a wallet first.");
     setSignPhase("autofill");
+    // A new signature must not inherit the previous one's submit result.
+    submitX.reset();
+    submitW.reset();
     const tx = parseTx(txText, session.address);
     const filled = await autofillTx(network, tx);
     setSignPhase("wallet");
     const blob = await adapter.signTransaction(filled, { network: networkId });
-    return { blob, filled };
+    const entry = entryFromSigned({
+      id: newEntryId(),
+      now: Date.now(),
+      network: networkId,
+      walletId: adapter.id,
+      account: session.address,
+      builtTx: tx,
+      blob,
+    });
+    return { blob, filled, entry };
   });
   const signed = sign.status === "success" ? (sign.data ?? null) : null;
 
@@ -105,6 +139,67 @@ export default function App() {
     if (!signed || !adapter?.submitTransaction) throw new Error("Sign a transaction first.");
     return adapter.submitTransaction(signed.filled, { network: networkId });
   });
+
+  // Record each finished signature, then keep its row up to date as it is submitted.
+  // Rows are found by hash because signing the same blob again reuses the existing row.
+  const rowFor = (hash: string) => entriesRef.current.find((e) => e.hash === hash);
+
+  useEffect(() => {
+    if (signed) history.add(signed.entry);
+  }, [signed]);
+
+  useEffect(() => {
+    if (!signed) return;
+    const row = rowFor(signed.entry.hash);
+    if (submitX.status === "success") {
+      const patch = patchFromXrplJsSubmit(submitX.data, Date.now());
+      if (row) history.update(row.id, patch);
+      else history.add({ ...signed.entry, ...patch });
+    } else if (submitX.status === "error") {
+      const patch = patchFromSubmitFailure("xrpljs", Date.now());
+      if (row) history.update(row.id, patch);
+      else history.add({ ...signed.entry, ...patch });
+    }
+  }, [submitX.status]);
+
+  useEffect(() => {
+    if (!signed) return;
+    const row = rowFor(signed.entry.hash);
+    if (submitW.status === "success") {
+      const patch = patchFromWalletSubmit(signed.entry, submitW.data, Date.now());
+      if (row) history.update(row.id, patch);
+      else history.add({ ...signed.entry, ...patch });
+    } else if (submitW.status === "error") {
+      const patch = patchFromSubmitFailure("wallet", Date.now());
+      if (row) history.update(row.id, patch);
+      else history.add({ ...signed.entry, ...patch });
+    }
+  }, [submitW.status]);
+
+  const checkStatus = async (entry: HistoryEntry) => {
+    const res = await lookupTx(entry.network, entry.hash);
+    const patch = patchFromLookup(entry, res, Date.now());
+    if (patch) history.update(entry.id, patch);
+  };
+
+  // Success confirmations fade after a few seconds; info notes stay until dismissed.
+  useEffect(() => {
+    if (!notices.some((n) => n.tone === "success")) return;
+    const t = setTimeout(() => setNotices((ns) => ns.filter((n) => n.tone !== "success")), 4000);
+    return () => clearTimeout(t);
+  }, [notices]);
+
+  const restore = (entry: HistoryEntry) => {
+    const plan = prepareRestore(entry, {
+      networkId,
+      mainnetOk,
+      address: session?.address,
+    });
+    if (plan.switchTo) changeNetwork(plan.switchTo);
+    else clearOutput();
+    setLoadRequest((r) => ({ nonce: r.nonce + 1, text: plan.text }));
+    setNotices(plan.notices);
+  };
 
   // Stops waiting on the wallet (and withdraws its request) without dropping a finished connection.
   const cancelPending = () => {
@@ -239,6 +334,7 @@ export default function App() {
       />
       <TxEditor
         value={txText}
+        account={session?.address ?? ""}
         signing={signing}
         signLabel={adapter ? `Autofill and sign with ${adapter.name}` : "Sign"}
         signingLabel={
@@ -249,10 +345,20 @@ export default function App() {
         disabledReason={
           session ? undefined : "Connect a wallet in step 2 to sign. Signing is disabled until then."
         }
+        loadRequest={loadRequest}
         onChange={changeTx}
         onSign={() => void sign.run()}
         onCancel={cancelPending}
       />
+
+      {notices.map((n, i) => (
+        <Alert
+          key={`${loadRequest.nonce}-${i}`}
+          variant={n.tone}
+          message={n.message}
+          onDismiss={() => setNotices((ns) => ns.filter((x) => x !== n))}
+        />
+      ))}
 
       {signError && (
         <Alert error={signError} onRetry={() => void sign.run()} onDismiss={sign.reset} />
@@ -285,6 +391,15 @@ export default function App() {
           onSubmitWallet={() => void submitW.run()}
         />
       )}
+      <HistoryPanel
+        entries={history.entries}
+        available={history.available}
+        disabled={busy}
+        onRestore={restore}
+        onRemove={history.remove}
+        onClear={history.clear}
+        onCheckStatus={checkStatus}
+      />
       {prompt && adapter && (
         <QrPrompt prompt={prompt} walletName={adapter.name} onCancel={cancelPending} />
       )}
