@@ -5,6 +5,7 @@ interface Props {
   networkId: NetworkId;
   mainnetOk: boolean;
   networkHint?: string;
+  disabled?: boolean;
   onNetwork: (id: NetworkId) => void;
   onMainnetOk: (ok: boolean) => void;
 }
@@ -13,6 +14,7 @@ export function NetworkBar({
   networkId,
   mainnetOk,
   networkHint,
+  disabled = false,
   onNetwork,
   onMainnetOk,
 }: Props) {
@@ -21,6 +23,8 @@ export function NetworkBar({
       <h2>1. Network</h2>
       <div className="row">
         <select
+          aria-label="Network"
+          disabled={disabled}
           value={networkId}
           onChange={(e) => onNetwork(e.target.value as NetworkId)}
         >
@@ -42,6 +46,7 @@ export function NetworkBar({
         <input
           type="checkbox"
           checked={mainnetOk}
+          disabled={disabled}
           onChange={(e) => onMainnetOk(e.target.checked)}
         />
         I understand mainnet is real XRP

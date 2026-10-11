@@ -103,3 +103,20 @@ a { color: var(--accent); display: inline-block; margin: 10px 0 6px; }
   main { padding: 16px 12px 48px; }
   .row { flex-wrap: wrap; }
 }
+
+/* UX states */
+.card-head { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; }
+.card-head h2, .card-head h3 { margin: 0 0 8px; }
+.wallet-card { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.wallet-card .wallet { width: 100%; }
+.wallets .wide { grid-column: 1 / -1; margin: 0; }
+.install-link { margin: 0; font-size: 0.85rem; }
+.linklike { background: none; border: 0; padding: 0; color: var(--accent); text-decoration: underline; font: inherit; }
+.inline-msg { margin: 6px 0; word-break: break-word; }
+.result-line { margin: 4px 0; word-break: break-word; }
+.ui-steps { margin-top: 16px; }
+.ui-alert { margin-top: 12px; }
+main > .ui-alert { margin-top: 16px; }
+@media (max-width: 480px) {
+  .row > .ui-btn { flex: 1 1 auto; }
+}

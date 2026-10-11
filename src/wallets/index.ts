@@ -4,3 +4,5 @@ import type { WalletAdapter } from "./types";
 
 export const ADAPTERS: WalletAdapter[] = [crossmark, gemwallet];
 export type { WalletAdapter, WalletSession } from "./types";
+export { WalletError } from "./errors";
+export type { WalletErrorCode } from "./errors";
