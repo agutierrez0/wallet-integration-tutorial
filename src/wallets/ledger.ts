@@ -1,4 +1,5 @@
 import { deriveAddress, encode, verifySignature } from "xrpl";
+import { unwrapDefault } from "./interop";
 import type { TxJson } from "../lib/tx";
 import { WalletError } from "./errors";
 import { runPrompt, throwIfAborted } from "./prompt";
@@ -184,7 +185,11 @@ function loadLibs(): Promise<LedgerLibs> {
       import("@ledgerhq/hw-transport-webusb"),
       import("@ledgerhq/hw-app-xrp"),
     ]);
-    return { Transport: transport.default, Xrp: app.default };
+    const isClass = (v: unknown) => typeof v === "function";
+    return {
+      Transport: unwrapDefault<LedgerLibs["Transport"]>(transport, isClass),
+      Xrp: unwrapDefault<LedgerLibs["Xrp"]>(app, isClass),
+    };
   })().catch((err) => {
     libsPromise = undefined; // allow a retry after a failed chunk load
     throw err;

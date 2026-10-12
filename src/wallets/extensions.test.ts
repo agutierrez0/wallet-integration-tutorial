@@ -109,6 +109,11 @@ describe("Crossmark adapter", () => {
     await expect(crossmark.signTransaction(tx)).rejects.toMatchObject({ code: "REJECTED" });
   });
 
+  it("waits for the SDK's background detection instead of reporting a false negative", async () => {
+    cm.sync.isInstalled.mockReturnValueOnce(false).mockReturnValueOnce(false).mockReturnValue(true);
+    await expect(crossmark.isAvailable()).resolves.toBe(true);
+  });
+
   it("cannot submit, and reports NOT_INSTALLED when the extension is missing", async () => {
     await expect(crossmark.submitTransaction!(tx)).rejects.toMatchObject({ code: "UNSUPPORTED" });
     cm.sync.isInstalled.mockReturnValue(false);

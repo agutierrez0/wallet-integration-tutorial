@@ -1,4 +1,5 @@
 import { WalletError } from "./errors";
+import { unwrapDefault } from "./interop";
 import { probeWithTimeout, runPrompt, throwIfAborted } from "./prompt";
 import type { WalletAdapter, WalletContext } from "./types";
 
@@ -10,7 +11,11 @@ type Sdk = typeof import("@crossmarkio/sdk").default;
 let sdkPromise: Promise<Sdk> | undefined;
 function loadSdk(): Promise<Sdk> {
   sdkPromise ??= import("@crossmarkio/sdk").then(
-    (m) => m.default,
+    (m) =>
+      unwrapDefault<Sdk>(
+        m,
+        (v) => typeof v === "object" && v !== null && "sync" in v && "methods" in v,
+      ),
     (err) => {
       sdkPromise = undefined; // allow a retry after a failed chunk load
       throw err;
@@ -39,10 +44,28 @@ interface SignResult {
   response: { data: { txBlob?: string; meta?: CrossmarkStatus } };
 }
 
+// The SDK only learns the extension is there after a background handshake that polls for
+// `window.xrpl.isCrossmark`, so the first reading right after the import is often a false
+// negative. Keep checking briefly; this must stay below PROBE_TIMEOUT_MS.
+const DETECT_MS = 2_500;
+const DETECT_STEP_MS = 100;
+
+function extensionFlag(): boolean {
+  return (
+    typeof window !== "undefined" &&
+    Boolean((window as { xrpl?: { isCrossmark?: boolean } }).xrpl?.isCrossmark)
+  );
+}
+
 async function installed(): Promise<boolean> {
   try {
     const sdk = await loadSdk();
-    return Boolean(sdk.sync.isInstalled?.());
+    const deadline = Date.now() + DETECT_MS;
+    for (;;) {
+      if (sdk.sync.isInstalled?.() || extensionFlag()) return true;
+      if (Date.now() >= deadline) return false;
+      await new Promise((resolve) => setTimeout(resolve, DETECT_STEP_MS));
+    }
   } catch {
     return false;
   }
