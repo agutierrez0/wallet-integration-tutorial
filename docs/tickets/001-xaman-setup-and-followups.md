@@ -34,20 +34,22 @@ two in `src/utils/xamanwallet.js` (commit `89f85c1` and earlier) and one in `src
   - [ ] cancelling a request already opened on the phone returns 409 `CANNOT_CANCEL`
 - [ ] Mobile: QR modal layout, and the "Open in Xaman" deeplink on a phone.
 
-## 3. Verify Docker, nginx and CSP (never built or run)
-- [ ] `docker compose -f docker-compose.yml config -q` and `-f docker-compose.prod.yml config -q`
-- [ ] `docker compose up --build`: web on :3000, API on :3001 (both bound to 127.0.0.1),
-      `/api/health` works through nginx and through vite.
-- [ ] `nginx -t` on `nginx.conf`; confirm `nginx-unprivileged` loads `conf.d/*.conf` and runs
-      on port 3000 as configured.
-- [ ] Load the app from the container and watch the **browser console for CSP blocks**: the Xaman
-      QR image, the faucet, XRPL websocket/RPC hosts, wallet extensions, the wasm chunk.
+## 3. Docker, nginx and CSP (verified locally; Coolify deploy still open)
+Verified on Docker Desktop (Apple Silicon): both compose files validate; the production images build and
+run healthy as non-root users; nginx serves the SPA and proxies `/api`; security headers present; CSP
+allows the XRPL testnet WebSocket and blocks other origins; the server refuses mainnet and foreign
+origins; the rate limit holds through nginx; CI's docker job passes on GitHub.
+Fixed along the way: `npm ci` in the server image tried to compile the optional `bufferutil` on
+arm64 Alpine and failed; both stages now use `--ignore-scripts` (CI on x64 had never caught it).
+- Note: public rippled JSON-RPC endpoints send no CORS headers, so the browser cannot call them
+  directly. The app uses WebSockets; the JSON-RPC body is only for copy-paste into Postman/curl.
 - [ ] Coolify: deploy `docker-compose.prod.yml`; set `XAMAN_API_KEY`, `XAMAN_API_SECRET`,
       `ALLOWED_ORIGIN` (exactly the public origin) as runtime env only (never build args);
       the server must not be published. See `deploy.env.example`.
 - [ ] Confirm the rate limiter sees real client IPs behind Traefik (nginx `set_real_ip_from`
       ranges match Coolify's network).
-- [ ] CI: first run of `.github/workflows/ci.yml` on GitHub (including the docker job).
+- [ ] Watch the browser console for CSP blocks on the deployed site (Xaman QR image, faucet,
+      wallet extensions).
 
 ## 4. Test Ledger on a real device
 - [ ] Chrome/Edge/Opera on HTTPS or localhost, Ledger unlocked, XRP app open.

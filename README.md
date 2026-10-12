@@ -110,7 +110,7 @@ Server environment (`server/.env.example`): `XAMAN_API_KEY`, `XAMAN_API_SECRET`,
 
 ## Docker
 
-> **Never built or run.** Docker was not available when these files were written, so the Dockerfiles, compose files and nginx config (including the CSP) are unverified. Work through the checklist in [ticket 001](docs/tickets/001-xaman-setup-and-followups.md) before trusting them.
+> **Verified locally** (Docker Desktop, Apple Silicon): the production images build, both containers report healthy and run as non-root, nginx serves the app and proxies `/api`, the security headers are sent, the CSP lets the app reach the XRPL testnet WebSocket while blocking other origins, mainnet and foreign origins are refused by the server, and the rate limit works through nginx. **Not yet verified:** a real Coolify deploy, and the rate limiter's client-IP handling behind Coolify's proxy (nginx trusts forwarded headers only from private ranges, so it also trusts them on a local machine).
 
 Dev (hot reload for both services):
 
