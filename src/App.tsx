@@ -2,9 +2,11 @@ import { useEffect, useRef, useState } from "react";
 import { ADAPTERS, WalletError } from "./wallets";
 import type { CancelResult, WalletPrompt } from "./wallets";
 import { useAction } from "./hooks/useAction";
+import { useGlobalNetwork } from "./hooks/useGlobalNetwork";
 import { useHistory } from "./hooks/useHistory";
 import { NETWORKS } from "./lib/networks";
 import type { NetworkId } from "./lib/networks";
+import { NETWORK_NAMES } from "./lib/networkStore";
 import { isCancelled, toUserError } from "./lib/errors";
 import { networkMismatchMessage } from "./lib/networkHint";
 import { pollTxResult } from "./lib/pollResult";
@@ -25,7 +27,7 @@ import type { RestoreNotice } from "./lib/historyEntries";
 import type { HistoryEntry } from "./lib/historyTypes";
 import { autofillTx, fundFromFaucet, parseTx, submitWithXrplJs } from "./lib/tx";
 import type { TxJson } from "./lib/tx";
-import { NetworkBar } from "./components/NetworkBar";
+import { Header } from "./components/Header";
 import { WalletPicker } from "./components/WalletPicker";
 import { TxEditor } from "./components/TxEditor";
 import { QrPrompt } from "./components/QrPrompt";
@@ -40,6 +42,11 @@ interface Signed {
   entry: HistoryEntry;
 }
 
+// `brief` notices fade on their own, like the success ones.
+interface AppNotice extends RestoreNotice {
+  brief?: boolean;
+}
+
 type SignPhase = "autofill" | "wallet";
 
 async function readAvailability(): Promise<Record<string, boolean>> {
@@ -50,8 +57,7 @@ async function readAvailability(): Promise<Record<string, boolean>> {
 }
 
 export default function App() {
-  const [networkId, setNetworkId] = useState<NetworkId>("testnet");
-  const [mainnetOk, setMainnetOk] = useState(false);
+  const [networkId, setNetworkId] = useGlobalNetwork();
   const [adapterId, setAdapterId] = useState("");
   const [txText, setTxText] = useState("");
   const [signPhase, setSignPhase] = useState<SignPhase>("autofill");
@@ -65,7 +71,7 @@ export default function App() {
   const entriesRef = useRef(history.entries);
   entriesRef.current = history.entries;
   const [loadRequest, setLoadRequest] = useState({ nonce: 0, text: "" });
-  const [notices, setNotices] = useState<RestoreNotice[]>([]);
+  const [notices, setNotices] = useState<AppNotice[]>([]);
 
   const network = NETWORKS[networkId];
   const adapter = ADAPTERS.find((a) => a.id === adapterId);
@@ -223,22 +229,32 @@ export default function App() {
 
   // Success confirmations fade after a few seconds; info notes stay until dismissed.
   useEffect(() => {
-    if (!notices.some((n) => n.tone === "success")) return;
-    const t = setTimeout(() => setNotices((ns) => ns.filter((n) => n.tone !== "success")), 4000);
+    const fades = (n: AppNotice) => n.tone === "success" || n.brief;
+    if (!notices.some(fades)) return;
+    const t = setTimeout(() => setNotices((ns) => ns.filter((n) => !fades(n))), 4000);
     return () => clearTimeout(t);
   }, [notices]);
 
   const restore = (entry: HistoryEntry) => {
     if (submitting) return;
+    // The network switch is global and unconfirmed, so a restore may switch to any network,
+    // mainnet included (prepareRestore only blocks mainnet when told it isn't allowed).
     const plan = prepareRestore(entry, {
       networkId,
-      mainnetOk,
+      mainnetOk: true,
       address: session?.address,
     });
     if (plan.switchTo) changeNetwork(plan.switchTo);
     else clearOutput();
     setLoadRequest((r) => ({ nonce: r.nonce + 1, text: plan.text }));
-    setNotices(plan.notices);
+    setNotices(
+      plan.switchTo
+        ? [
+            ...plan.notices,
+            { tone: "info", message: `Switched to ${NETWORK_NAMES[plan.switchTo]}.`, brief: true },
+          ]
+        : plan.notices,
+    );
   };
 
   const addNotice = (message: string) => setNotices((ns) => [...ns, { tone: "info", message }]);
@@ -290,11 +306,6 @@ export default function App() {
     setNetworkId(id);
     clearOutput();
     fund.reset();
-  };
-
-  const changeMainnetOk = (ok: boolean) => {
-    setMainnetOk(ok);
-    if (!ok && networkId === "mainnet") changeNetwork("testnet");
   };
 
   const selectAdapter = (id: string) => {
@@ -372,129 +383,132 @@ export default function App() {
   const walletName = adapter?.name ?? "wallet";
 
   return (
-    <main>
-      <header>
-        <h1>XRPL Wallet Sandbox</h1>
+    <>
+      <Header
+        networkId={networkId}
+        onNetwork={changeNetwork}
+        busy={busy}
+        networkHint={session?.networkHint}
+        hintNote={hintNote}
+        mismatch={networkMismatch}
+      />
+      <main>
         <p className="muted">
           Connect any wallet, sign a transaction, get the blob and hash, then submit it however you
           like.
         </p>
-      </header>
 
-      <Steps steps={steps} />
-      <div className="ui-sr-only" aria-live="polite" role="status">
-        {announce}
-      </div>
+        <Steps steps={steps} />
+        <div className="ui-sr-only" aria-live="polite" role="status">
+          {announce}
+        </div>
 
-      <NetworkBar
-        networkId={networkId}
-        mainnetOk={mainnetOk}
-        networkHint={session?.networkHint}
-        hintNote={hintNote}
-        mismatch={networkMismatch}
-        disabled={busy}
-        onNetwork={changeNetwork}
-        onMainnetOk={changeMainnetOk}
-      />
-      <WalletPicker
-        adapters={ADAPTERS}
-        available={available}
-        selectedId={adapterId}
-        session={session}
-        connect={connect}
-        fund={fund}
-        canFund={!!network.faucet}
-        locked={busy && connect.status !== "loading"}
-        disconnecting={disconnect.status === "loading"}
-        onSelect={selectAdapter}
-        onConnect={() => void connect.run()}
-        onCancelConnect={() => void cancelPending()}
-        onDisconnect={() => void disconnectNow()}
-        onFund={() => void fund.run()}
-        onRecheck={recheck}
-      />
-      <TxEditor
-        value={txText}
-        account={session?.address ?? ""}
-        signing={signing}
-        busy={submitting}
-        signLabel={adapter ? `Autofill and sign with ${adapter.name}` : "Sign"}
-        signingLabel={
-          signPhase === "autofill"
-            ? `Autofilling from ${network.label}…`
-            : `Waiting for approval in ${walletName}…`
-        }
-        disabledReason={
-          networkMismatch ??
-          (session ? undefined : "Connect a wallet above to sign. Signing is disabled until then.")
-        }
-        loadRequest={loadRequest}
-        onChange={changeTx}
-        onSign={() => void sign.run()}
-        onCancel={() => void cancelPending()}
-      />
-
-      {notices.map((n, i) => (
-        <Alert
-          // biome-ignore lint/suspicious/noArrayIndexKey: notices have no id; the list is replaced wholesale per restore (nonce)
-          key={`${loadRequest.nonce}-${i}`}
-          variant={n.tone}
-          message={n.message}
-          onDismiss={() => setNotices((ns) => ns.filter((x) => x !== n))}
+        <WalletPicker
+          adapters={ADAPTERS}
+          available={available}
+          selectedId={adapterId}
+          session={session}
+          connect={connect}
+          fund={fund}
+          canFund={!!network.faucet}
+          locked={busy && connect.status !== "loading"}
+          disconnecting={disconnect.status === "loading"}
+          onSelect={selectAdapter}
+          onConnect={() => void connect.run()}
+          onCancelConnect={() => void cancelPending()}
+          onDisconnect={() => void disconnectNow()}
+          onFund={() => void fund.run()}
+          onRecheck={recheck}
         />
-      ))}
+        <TxEditor
+          value={txText}
+          account={session?.address ?? ""}
+          signing={signing}
+          busy={submitting}
+          signLabel={adapter ? `Autofill and sign with ${adapter.name}` : "Sign"}
+          signingLabel={
+            signPhase === "autofill"
+              ? `Autofilling from ${network.label}…`
+              : `Waiting for approval in ${walletName}…`
+          }
+          disabledReason={
+            networkMismatch ??
+            (session
+              ? undefined
+              : "Connect a wallet above to sign. Signing is disabled until then.")
+          }
+          loadRequest={loadRequest}
+          onChange={changeTx}
+          onSign={() => void sign.run()}
+          onCancel={() => void cancelPending()}
+        />
 
-      {signError && (
-        <Alert error={signError} onRetry={() => void sign.run()} onDismiss={sign.reset} />
-      )}
-      {signCancelled && (
-        <p className="muted" role="status">
-          Cancelled. Nothing was signed.
-        </p>
-      )}
-
-      {signing && (
-        <section className="card">
-          <h2>Signed output</h2>
-          <SkeletonBlock
-            lines={6}
-            label={
-              signPhase === "autofill"
-                ? "Autofilling transaction…"
-                : `Waiting for approval in ${walletName}…`
-            }
+        {notices.map((n, i) => (
+          <Alert
+            // biome-ignore lint/suspicious/noArrayIndexKey: notices have no id; the list is replaced wholesale per restore (nonce)
+            key={`${loadRequest.nonce}-${i}`}
+            variant={n.tone}
+            message={n.message}
+            onDismiss={() => setNotices((ns) => ns.filter((x) => x !== n))}
           />
-        </section>
-      )}
+        ))}
 
-      {signed && (
-        <SignedOutput
-          key={signed.blob}
-          network={network}
-          walletName={walletName}
-          blob={signed.blob}
-          filled={signed.filled}
-          canWalletSubmit={!!adapter?.capabilities.submit}
-          submitX={submitX}
-          submitW={submitW}
-          lookup={{ status: check.status, result: check.data }}
-          onSubmitXrplJs={() => void submitX.run()}
-          onSubmitWallet={() => void submitW.run()}
-          onCancelWallet={() => void cancelPending()}
+        {signError && (
+          <Alert error={signError} onRetry={() => void sign.run()} onDismiss={sign.reset} />
+        )}
+        {signCancelled && (
+          <p className="muted" role="status">
+            Cancelled. Nothing was signed.
+          </p>
+        )}
+
+        {signing && (
+          <section className="card">
+            <h2>Signed output</h2>
+            <SkeletonBlock
+              lines={6}
+              label={
+                signPhase === "autofill"
+                  ? "Autofilling transaction…"
+                  : `Waiting for approval in ${walletName}…`
+              }
+            />
+          </section>
+        )}
+
+        {signed && (
+          <SignedOutput
+            key={signed.blob}
+            network={network}
+            walletName={walletName}
+            blob={signed.blob}
+            filled={signed.filled}
+            canWalletSubmit={!!adapter?.capabilities.submit}
+            submitX={submitX}
+            submitW={submitW}
+            lookup={{ status: check.status, result: check.data }}
+            onSubmitXrplJs={() => void submitX.run()}
+            onSubmitWallet={() => void submitW.run()}
+            onCancelWallet={() => void cancelPending()}
+          />
+        )}
+        <HistoryPanel
+          entries={history.entries}
+          available={history.available}
+          disabled={busy}
+          onRestore={restore}
+          onRemove={history.remove}
+          onClear={history.clear}
+          onCheckStatus={checkStatus}
         />
-      )}
-      <HistoryPanel
-        entries={history.entries}
-        available={history.available}
-        disabled={busy}
-        onRestore={restore}
-        onRemove={history.remove}
-        onClear={history.clear}
-        onCheckStatus={checkStatus}
-      />
-      {prompt && adapter && (
-        <QrPrompt prompt={prompt} walletName={adapter.name} onCancel={() => void cancelPending()} />
-      )}
-    </main>
+        {prompt && adapter && (
+          <QrPrompt
+            prompt={prompt}
+            walletName={adapter.name}
+            onCancel={() => void cancelPending()}
+          />
+        )}
+      </main>
+    </>
   );
 }

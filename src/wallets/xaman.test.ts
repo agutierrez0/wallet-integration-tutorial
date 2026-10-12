@@ -332,6 +332,29 @@ describe("xaman adapter", () => {
     expect(prompts.filter((p) => p === null)).toHaveLength(1);
   });
 
+  it("explains a server-side mainnet refusal and a forbidden origin separately", async () => {
+    mockFetch({
+      "POST /api/xaman/payload": [
+        () => json({ error: { code: "MAINNET_DISABLED", message: "x" } }, 403),
+      ],
+    });
+    await expect(adapter().connect({ network: "mainnet" })).rejects.toMatchObject({
+      code: "UNSUPPORTED",
+      message: expect.stringContaining("ALLOW_MAINNET=true"),
+    });
+
+    vi.unstubAllGlobals();
+    mockFetch({
+      "POST /api/xaman/payload": [
+        () => json({ error: { code: "FORBIDDEN_ORIGIN", message: "x" } }, 403),
+      ],
+    });
+    await expect(adapter().connect(ctx)).rejects.toMatchObject({
+      code: "UNKNOWN",
+      message: expect.stringContaining("ALLOWED_ORIGIN"),
+    });
+  });
+
   it("maps backend errors to readable messages", async () => {
     mockFetch({
       "POST /api/xaman/payload": [
