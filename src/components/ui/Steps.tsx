@@ -42,7 +42,7 @@ export function Steps({ steps }: StepsProps) {
           title: (
             <span aria-current={s.state === "current" ? "step" : undefined}>
               {s.label}
-              <span className="ui-sr-only">: {STATE_TEXT[s.state]}</span>
+              <span className="sr-only">: {STATE_TEXT[s.state]}</span>
             </span>
           ),
         }))}

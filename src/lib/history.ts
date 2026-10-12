@@ -1,4 +1,3 @@
-import { dropsToXrp } from "xrpl";
 import {
   HISTORY_KEY,
   HISTORY_LIMIT,
@@ -364,6 +363,20 @@ function currencyLabel(code: string): string {
     .map((n) => String.fromCharCode(n))
     .join("");
   return /^[\x20-\x7e]+$/.test(text) ? text : `${code.slice(0, 6)}…`;
+}
+
+// Same result as xrpl's dropsToXrp for integer drop strings, without importing the xrpl library
+// into the main bundle. Anything that is not whole drops throws, as before.
+function dropsToXrp(drops: string): number {
+  if (!/^-?\d+$/.test(drops)) throw new Error("not whole drops");
+  const negative = drops.startsWith("-");
+  const digits = drops
+    .replace(/^-/, "")
+    .replace(/^0+(?=\d)/, "")
+    .padStart(7, "0");
+  const whole = digits.slice(0, -6);
+  const fraction = digits.slice(-6).replace(/0+$/, "");
+  return Number(`${negative ? "-" : ""}${whole}${fraction ? `.${fraction}` : ""}`);
 }
 
 function amountText(amount: unknown): string | null {

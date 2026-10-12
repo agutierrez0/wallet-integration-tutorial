@@ -1,8 +1,12 @@
-import { describe, expect, it } from "vitest";
+import { beforeAll, describe, expect, it } from "vitest";
 import { NotConnectedError, RippledError, TimeoutError, ValidationError } from "xrpl";
 import { WalletError } from "../wallets/errors";
 import { isCancelled, toUserError } from "./errors";
 import { explainResult } from "./resultCodes";
+import { loadXrpl } from "./xrplLoader";
+
+// toUserError recognises xrpl errors through the lazily loaded library.
+beforeAll(() => loadXrpl());
 
 describe("explainResult", () => {
   it("explains known codes", () => {

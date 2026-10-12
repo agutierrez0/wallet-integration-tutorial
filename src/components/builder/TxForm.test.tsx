@@ -40,25 +40,26 @@ const text = () => document.body.textContent ?? "";
 const openAdvanced = () => fireEvent.click(screen.getByText(/Advanced options/));
 
 describe("TxForm field rendering", () => {
-  it("renders a UTC date-time picker for date fields", () => {
+  it("renders a UTC date-time picker for date fields", async () => {
     form("CheckCreate", { Expiration: "2030-01-01T10:30:00" });
     openAdvanced();
     expect(text()).toContain("Time is UTC, not your local time");
     // The picker shows the stored UTC digits, never a local-time conversion.
-    const input = screen.getByLabelText(/Expires/) as HTMLInputElement;
+    // The picker is a lazily loaded chunk, so wait for it.
+    const input = (await screen.findByLabelText(/Expires/)) as HTMLInputElement;
     expect(input.value).toBe("2030-01-01 10:30:00 UTC");
   });
 
-  it("starts a date field empty", () => {
+  it("starts a date field empty", async () => {
     form("CheckCreate");
     openAdvanced();
-    expect((screen.getByLabelText(/Expires/) as HTMLInputElement).value).toBe("");
+    expect(((await screen.findByLabelText(/Expires/)) as HTMLInputElement).value).toBe("");
   });
 
-  it("offers 'In 1 hour' and 'In 1 day' presets when the picker opens", () => {
+  it("offers 'In 1 hour' and 'In 1 day' presets when the picker opens", async () => {
     form("CheckCreate");
     openAdvanced();
-    const input = screen.getByLabelText(/Expires/);
+    const input = await screen.findByLabelText(/Expires/);
     act(() => input.focus());
     fireEvent.click(input);
     expect(screen.getByText("In 1 hour")).toBeTruthy();

@@ -157,7 +157,9 @@ function Row({
             </Tag>
             <StatusPill tone={status.tone}>{status.label}</StatusPill>
           </Flex>
-          {summary && <Typography.Text type="secondary">{summary}</Typography.Text>}
+          {summary && summary !== entry.txType && (
+            <Typography.Text type="secondary">{summary}</Typography.Text>
+          )}
           <Flex align="center" gap="small" wrap>
             <Typography.Text
               code
@@ -234,7 +236,7 @@ function Row({
         </Flex>
       </Flex>
 
-      <span className="ui-sr-only" aria-live="polite">
+      <span className="sr-only" aria-live="polite">
         {copied ? "Hash copied" : ""}
       </span>
 

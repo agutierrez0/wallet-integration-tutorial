@@ -1,5 +1,5 @@
 import { Alert, Card, Flex, Layout, Skeleton, Steps, Typography } from "antd";
-import { useEffect, useRef, useState } from "react";
+import { Suspense, lazy, useEffect, useRef, useState } from "react";
 import { ADAPTERS, WalletError } from "./wallets";
 import type { CancelResult, WalletPrompt } from "./wallets";
 import { useAction } from "./hooks/useAction";
@@ -23,6 +23,7 @@ import {
   patchFromWalletSubmit,
   patchFromXrplJsSubmit,
   prepareRestore,
+  resultCode,
 } from "./lib/historyEntries";
 import type { RestoreNotice } from "./lib/historyEntries";
 import type { HistoryEntry } from "./lib/historyTypes";
@@ -30,11 +31,25 @@ import { autofillTx, fundFromFaucet, parseTx, submitWithXrplJs } from "./lib/tx"
 import type { TxJson } from "./lib/tx";
 import { Header } from "./components/Header";
 import { WalletPicker } from "./components/WalletPicker";
-import { TxEditor } from "./components/TxEditor";
-import { QrPrompt } from "./components/QrPrompt";
-import { HistoryPanel } from "./components/HistoryPanel";
-import { SignedOutput, resultCode } from "./components/SignedOutput";
 import { UserErrorAlert } from "./components/shell/UserErrorAlert";
+
+// Parts that are not needed for the first paint load as separate chunks right after mount.
+const TxEditor = lazy(() => import("./components/TxEditor").then((m) => ({ default: m.TxEditor })));
+const SignedOutput = lazy(() =>
+  import("./components/SignedOutput").then((m) => ({ default: m.SignedOutput })),
+);
+const HistoryPanel = lazy(() =>
+  import("./components/HistoryPanel").then((m) => ({ default: m.HistoryPanel })),
+);
+const QrPrompt = lazy(() => import("./components/QrPrompt").then((m) => ({ default: m.QrPrompt })));
+
+function CardSkeleton({ label }: { label: string }) {
+  return (
+    <Card aria-busy="true" aria-label={label}>
+      <Skeleton active paragraph={{ rows: 3 }} />
+    </Card>
+  );
+}
 
 interface Signed {
   blob: string;
@@ -170,7 +185,9 @@ export default function App() {
     if (signal.aborted) throw cancelledBeforePrompt();
     setSignPhase("wallet");
     const blob = await adapter.signTransaction(filled, { network: networkId, signal });
+    const { hashOfBlob } = await import("./lib/txCodec");
     const entry = entryFromSigned({
+      hash: hashOfBlob(blob),
       id: newEntryId(),
       now: Date.now(),
       network: networkId,
@@ -437,28 +454,30 @@ export default function App() {
             onFund={() => void fund.run()}
             onRecheck={recheck}
           />
-          <TxEditor
-            value={txText}
-            account={session?.address ?? ""}
-            signing={signing}
-            busy={submitting}
-            signLabel={adapter ? `Autofill and sign with ${adapter.name}` : "Sign"}
-            signingLabel={
-              signPhase === "autofill"
-                ? `Autofilling from ${network.label}…`
-                : `Waiting for approval in ${walletName}…`
-            }
-            disabledReason={
-              networkMismatch ??
-              (session
-                ? undefined
-                : "Connect a wallet above to sign. Signing is disabled until then.")
-            }
-            loadRequest={loadRequest}
-            onChange={changeTx}
-            onSign={() => void sign.run()}
-            onCancel={() => void cancelPending()}
-          />
+          <Suspense fallback={<CardSkeleton label="Loading the transaction editor" />}>
+            <TxEditor
+              value={txText}
+              account={session?.address ?? ""}
+              signing={signing}
+              busy={submitting}
+              signLabel={adapter ? `Autofill and sign with ${adapter.name}` : "Sign"}
+              signingLabel={
+                signPhase === "autofill"
+                  ? `Autofilling from ${network.label}…`
+                  : `Waiting for approval in ${walletName}…`
+              }
+              disabledReason={
+                networkMismatch ??
+                (session
+                  ? undefined
+                  : "Connect a wallet above to sign. Signing is disabled until then.")
+              }
+              loadRequest={loadRequest}
+              onChange={changeTx}
+              onSign={() => void sign.run()}
+              onCancel={() => void cancelPending()}
+            />
+          </Suspense>
 
           {notices.map((n, i) => (
             <Alert
@@ -507,37 +526,43 @@ export default function App() {
           )}
 
           {signed && (
-            <SignedOutput
-              key={signed.blob}
-              network={network}
-              walletName={walletName}
-              blob={signed.blob}
-              filled={signed.filled}
-              canWalletSubmit={!!adapter?.capabilities.submit}
-              submitX={submitX}
-              submitW={submitW}
-              lookup={{ status: check.status, result: check.data }}
-              onSubmitXrplJs={() => void submitX.run()}
-              onSubmitWallet={() => void submitW.run()}
-              onCancelWallet={() => void cancelPending()}
-            />
+            <Suspense fallback={<CardSkeleton label="Loading the signed output" />}>
+              <SignedOutput
+                key={signed.blob}
+                network={network}
+                walletName={walletName}
+                blob={signed.blob}
+                filled={signed.filled}
+                canWalletSubmit={!!adapter?.capabilities.submit}
+                submitX={submitX}
+                submitW={submitW}
+                lookup={{ status: check.status, result: check.data }}
+                onSubmitXrplJs={() => void submitX.run()}
+                onSubmitWallet={() => void submitW.run()}
+                onCancelWallet={() => void cancelPending()}
+              />
+            </Suspense>
           )}
-          <HistoryPanel
-            entries={history.entries}
-            available={history.available}
-            disabled={busy}
-            onRestore={restore}
-            onRemove={history.remove}
-            onClear={history.clear}
-            onCheckStatus={checkStatus}
-          />
+          <Suspense fallback={<CardSkeleton label="Loading history" />}>
+            <HistoryPanel
+              entries={history.entries}
+              available={history.available}
+              disabled={busy}
+              onRestore={restore}
+              onRemove={history.remove}
+              onClear={history.clear}
+              onCheckStatus={checkStatus}
+            />
+          </Suspense>
         </Flex>
         {prompt && adapter && (
-          <QrPrompt
-            prompt={prompt}
-            walletName={adapter.name}
-            onCancel={() => void cancelPending()}
-          />
+          <Suspense fallback={null}>
+            <QrPrompt
+              prompt={prompt}
+              walletName={adapter.name}
+              onCancel={() => void cancelPending()}
+            />
+          </Suspense>
         )}
       </Layout.Content>
     </Layout>

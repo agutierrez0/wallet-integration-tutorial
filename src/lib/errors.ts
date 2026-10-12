@@ -1,12 +1,26 @@
-import {
-  ConnectionError,
-  NotConnectedError,
-  RippledError,
-  TimeoutError,
-  ValidationError,
-  XrplError,
-} from "xrpl";
+import type * as Xrpl from "xrpl";
+import { loadXrpl, loadedXrpl } from "./xrplLoader";
 import { WalletError } from "../wallets/errors";
+
+// An xrpl error can only exist once the library has loaded; start loading it right away so the
+// classes below are available for `instanceof` (minifiers rename classes, so names are unreliable).
+void loadXrpl().catch(() => {});
+
+type XrplErrorName =
+  | "RippledError"
+  | "TimeoutError"
+  | "NotConnectedError"
+  | "ConnectionError"
+  | "ValidationError"
+  | "XrplError";
+
+function isXrplError<N extends XrplErrorName>(
+  e: unknown,
+  name: N,
+): e is InstanceType<(typeof Xrpl)[N]> {
+  const Cls = loadedXrpl()?.[name] as (new (...args: never[]) => unknown) | undefined;
+  return typeof Cls === "function" && e instanceof Cls;
+}
 
 export interface UserError {
   title: string;
@@ -81,12 +95,12 @@ export function isCancelled(e: unknown): boolean {
   return e instanceof WalletError && e.code === "CANCELLED";
 }
 
-function rippledCode(e: RippledError): string | undefined {
+function rippledCode(e: Xrpl.RippledError): string | undefined {
   const data = e.data as { error?: unknown; error_message?: unknown } | undefined;
   return typeof data?.error === "string" ? data.error : undefined;
 }
 
-function rippledError(e: RippledError): UserError {
+function rippledError(e: Xrpl.RippledError): UserError {
   const code = rippledCode(e);
   if (code === "actNotFound") {
     return {
@@ -127,9 +141,9 @@ export function toUserError(e: unknown): UserError {
     };
   }
 
-  if (e instanceof RippledError) return rippledError(e);
+  if (isXrplError(e, "RippledError")) return rippledError(e);
 
-  if (e instanceof TimeoutError) {
+  if (isXrplError(e, "TimeoutError")) {
     return {
       kind: "network",
       title: "Request timed out",
@@ -139,7 +153,7 @@ export function toUserError(e: unknown): UserError {
     };
   }
 
-  if (e instanceof NotConnectedError) {
+  if (isXrplError(e, "NotConnectedError")) {
     return {
       kind: "network",
       title: "Not connected",
@@ -149,7 +163,7 @@ export function toUserError(e: unknown): UserError {
     };
   }
 
-  if (e instanceof ConnectionError || isFetchFailure(e)) {
+  if (isXrplError(e, "ConnectionError") || isFetchFailure(e)) {
     return {
       kind: "network",
       title: "Network problem",
@@ -159,7 +173,7 @@ export function toUserError(e: unknown): UserError {
     };
   }
 
-  if (e instanceof ValidationError) {
+  if (isXrplError(e, "ValidationError")) {
     return {
       kind: "input",
       title: "Invalid transaction",
@@ -169,7 +183,7 @@ export function toUserError(e: unknown): UserError {
     };
   }
 
-  if (e instanceof XrplError || e instanceof Error) {
+  if (isXrplError(e, "XrplError") || e instanceof Error) {
     return { kind: "unknown", title: "Something went wrong", message: e.message, retryable: false };
   }
 

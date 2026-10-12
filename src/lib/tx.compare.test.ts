@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { Wallet } from "xrpl";
-import { compareSignedToBuilt } from "./tx";
+import { compareSignedToBuilt } from "./txCodec";
 
 const wallet = Wallet.fromSeed("sEdTM1uX8pu2do5XvTnutH6HsouMaM2");
 const other = Wallet.fromSeed("sEdSKaCy2JT7JaM7v95H9SxkhP9wS2r");

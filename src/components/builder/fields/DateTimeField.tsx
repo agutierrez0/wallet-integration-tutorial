@@ -1,17 +1,9 @@
-import { DatePicker } from "antd";
-import dayjs from "dayjs";
-import utc from "dayjs/plugin/utc";
+import { Skeleton } from "antd";
+import { Suspense, lazy } from "react";
 import { type FieldProps, FieldShell, Hint } from "./FieldShell";
 
-dayjs.extend(utc);
-
-// The schema stores "YYYY-MM-DDTHH:mm:ss" in UTC, the same shape <input type="datetime-local"> uses.
-const STORED = "YYYY-MM-DDTHH:mm:ss";
-
-const QUICK_FILLS = [
-  { label: "In 1 hour", ms: 60 * 60 * 1000 },
-  { label: "In 1 day", ms: 24 * 60 * 60 * 1000 },
-];
+// The antd DatePicker is a large dependency that only a few transaction types need.
+const UtcDatePicker = lazy(() => import("./UtcDatePicker"));
 
 export function utcValueAfter(ms: number, now = Date.now()): string {
   return new Date(now + ms).toISOString().slice(0, 19);
@@ -33,32 +25,24 @@ export function DateTimeField({
   disabled,
 }: FieldProps<string>) {
   const v = typeof value === "string" ? value : "";
-  const parsed = v ? dayjs.utc(v) : null;
   const local = localEquivalent(v);
 
   return (
     <FieldShell def={def} error={error}>
       {({ id, describedBy, invalid, required }) => (
         <>
-          <DatePicker
-            id={id}
-            showTime={{ format: "HH:mm:ss" }}
-            format="YYYY-MM-DD HH:mm:ss [UTC]"
-            style={{ width: "100%" }}
-            value={parsed?.isValid() ? parsed : null}
-            disabled={disabled}
-            status={invalid ? "error" : undefined}
-            showNow={false}
-            aria-invalid={invalid || undefined}
-            aria-required={required || undefined}
-            aria-describedby={describedBy}
-            presets={QUICK_FILLS.map((q) => ({
-              label: q.label,
-              value: () => dayjs.utc().add(q.ms, "millisecond"),
-            }))}
-            onChange={(d) => onChange(d ? d.format(STORED) : "")}
-            onBlur={onBlur}
-          />
+          <Suspense fallback={<Skeleton.Input active block aria-busy="true" />}>
+            <UtcDatePicker
+              id={id}
+              value={v}
+              disabled={disabled}
+              invalid={invalid}
+              required={required}
+              describedBy={describedBy}
+              onChange={onChange}
+              onBlur={onBlur}
+            />
+          </Suspense>
           <Hint>
             {local
               ? `Time is UTC, not your local time. In your timezone: ${local}.`

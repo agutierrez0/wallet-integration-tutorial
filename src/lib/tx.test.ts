@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { Wallet } from "xrpl";
-import { curlFor, hashOfBlob, isSignatureValid, parseTx, rpcSubmitBody, rpcTxBody } from "./tx";
+import { curlFor, parseTx, rpcSubmitBody, rpcTxBody } from "./tx";
+import { hashOfBlob, isSignatureValid } from "./txCodec";
 import { NETWORKS } from "./networks";
 
 // Fully specified tx, so signing needs no network.

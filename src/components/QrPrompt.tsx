@@ -125,7 +125,7 @@ export function QrPrompt({ prompt, walletName, onCancel }: Props) {
               <Typography.Text type="secondary" aria-hidden="true">
                 {left === null ? "Waiting…" : `Expires in ${formatCountdown(left)}`}
               </Typography.Text>
-              <span className="ui-sr-only">
+              <span className="sr-only">
                 {left !== null
                   ? `This request expires in about ${Math.ceil(left / 60)} minute(s).`
                   : ""}

@@ -7,6 +7,7 @@ body,
   min-height: 100%;
 }
 
+/* Visually hidden, still read by screen readers. */
 .sr-only {
   position: absolute;
   width: 1px;
@@ -14,6 +15,7 @@ body,
   margin: -1px;
   padding: 0;
   overflow: hidden;
+  clip: rect(0, 0, 0, 0);
   clip-path: inset(50%);
   white-space: nowrap;
   border: 0;
@@ -99,4 +101,15 @@ body,
   .brand-short {
     display: inline;
   }
+}
+
+/* Mainnet is real money: a thin red bar above everything, set via <html data-network> */
+html[data-network="mainnet"]::before {
+  content: "";
+  position: fixed;
+  inset: 0 0 auto 0;
+  height: 3px;
+  background: #dc2626;
+  z-index: 1100;
+  pointer-events: none;
 }

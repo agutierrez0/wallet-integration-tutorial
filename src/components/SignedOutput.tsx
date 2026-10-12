@@ -6,15 +6,8 @@ import type { LookupResult } from "../lib/history";
 import { resultCode } from "../lib/historyEntries";
 import type { Network } from "../lib/networks";
 import { explainResult } from "../lib/resultCodes";
-import {
-  compareSignedToBuilt,
-  curlFor,
-  decodeBlob,
-  hashOfBlob,
-  isSignatureValid,
-  rpcSubmitBody,
-  rpcTxBody,
-} from "../lib/tx";
+import { curlFor, rpcSubmitBody, rpcTxBody } from "../lib/tx";
+import { compareSignedToBuilt, decodeBlob, hashOfBlob, isSignatureValid } from "../lib/txCodec";
 import type { TxJson } from "../lib/tx";
 import { CopyBlock } from "./CopyBlock";
 import { ActionButton, Alert, SkeletonBlock, StatusPill } from "./ui";

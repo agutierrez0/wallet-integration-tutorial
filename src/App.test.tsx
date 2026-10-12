@@ -179,7 +179,8 @@ describe("cancelling", () => {
     fireEvent.click(await screen.findByRole("button", { name: "Connect Fake" }));
     await screen.findByRole("button", { name: /Waiting for approval in Fake/ });
     act(() => h.state.promptHandler?.({ title: "Scan" }));
-    expect(screen.getByTestId("qr")).toBeTruthy();
+    // The QR dialog is a lazily loaded chunk, so wait for it to arrive.
+    expect(await screen.findByTestId("qr")).toBeTruthy();
 
     fireEvent.click(screen.getByRole("button", { name: "qr-cancel" }));
     await waitFor(() => expect(screen.queryByTestId("qr")).toBeNull());
@@ -224,7 +225,7 @@ describe("cancelling", () => {
     await screen.findByRole("button", { name: /Waiting for approval in Fake/ });
     act(() => h.state.promptHandler?.({ title: "Scan" }));
 
-    fireEvent.click(screen.getByRole("button", { name: "qr-cancel" }));
+    fireEvent.click(await screen.findByRole("button", { name: "qr-cancel" }));
     expect(await screen.findByText(/Already open in Fake/)).toBeTruthy();
     expect(screen.getByTestId("qr")).toBeTruthy();
     expect(screen.getByRole("button", { name: /Waiting for approval in Fake/ })).toBeTruthy();

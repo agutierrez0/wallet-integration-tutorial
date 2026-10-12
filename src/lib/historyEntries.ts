@@ -1,7 +1,6 @@
 import type { LookupResult } from "./history";
 import type { HistoryEntry } from "./historyTypes";
 import type { NetworkId } from "./networks";
-import { hashOfBlob } from "./tx";
 import type { TxJson } from "./tx";
 
 // A transaction hash is 64 hex characters. Anything else is rejected before it is used in
@@ -136,6 +135,8 @@ export interface SignedInfo {
   // The transaction as the user built it, before autofill.
   builtTx: TxJson;
   blob: string;
+  // Locally computed hash of `blob` (hashOfBlob from lib/txCodec).
+  hash: string;
 }
 
 export function entryFromSigned(s: SignedInfo): HistoryEntry {
@@ -147,7 +148,7 @@ export function entryFromSigned(s: SignedInfo): HistoryEntry {
     account: s.account,
     txType: String(s.builtTx.TransactionType ?? "Unknown"),
     tx: s.builtTx,
-    hash: hashOfBlob(s.blob),
+    hash: s.hash,
     signedBlob: s.blob,
     status: "signed",
   };

@@ -19,7 +19,7 @@ import {
   stripForRestore,
 } from "./historyEntries";
 import type { HistoryEntry } from "./historyTypes";
-import { hashOfBlob } from "./tx";
+import { hashOfBlob } from "./txCodec";
 import type { TxJson } from "./tx";
 import { buildTx, getSchema, valuesFromTx } from "./txSchemas";
 
@@ -52,6 +52,7 @@ function entry(over: Partial<HistoryEntry> = {}): HistoryEntry {
     account: wallet.address,
     builtTx: built,
     blob: signed(built),
+    hash: hashOfBlob(signed(built)),
   });
   return { ...e, ...over };
 }
@@ -67,6 +68,7 @@ describe("entryFromSigned", () => {
       account: wallet.address,
       builtTx: built,
       blob,
+      hash: hashOfBlob(blob),
     });
     expect(e).toMatchObject({
       id: "a",

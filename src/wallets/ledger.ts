@@ -1,4 +1,4 @@
-import { deriveAddress, encode, verifySignature } from "xrpl";
+import { loadXrpl } from "../lib/xrplLoader";
 import { unwrapDefault } from "./interop";
 import type { TxJson } from "../lib/tx";
 import { WalletError } from "./errors";
@@ -58,6 +58,7 @@ export async function signWithDevice(
   device: LedgerDevice,
   path: string = derivationPath(),
 ): Promise<string> {
+  const { deriveAddress, encode, verifySignature } = await loadXrpl();
   const { address, publicKey: rawKey } = await device.getAddress(path);
   const publicKey = normalizePublicKey(rawKey);
   if (deriveAddress(publicKey) !== address) {

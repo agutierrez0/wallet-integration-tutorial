@@ -7,6 +7,10 @@ updates:
     groups:
       dev:
         dependency-type: development
+    ignore:
+      # Runtime is pinned to Node 22 (.nvmrc, Dockerfiles); type definitions must match it.
+      - dependency-name: "@types/node"
+        update-types: ["version-update:semver-major"]
   - package-ecosystem: npm
     directory: /server
     schedule:
@@ -14,6 +18,10 @@ updates:
     groups:
       dev:
         dependency-type: development
+    ignore:
+      # Runtime is pinned to Node 22 (.nvmrc, Dockerfiles); type definitions must match it.
+      - dependency-name: "@types/node"
+        update-types: ["version-update:semver-major"]
   - package-ecosystem: github-actions
     directory: /
     schedule:
@@ -22,6 +30,10 @@ updates:
     directories: ["/", "/server"]
     schedule:
       interval: monthly
+    ignore:
+      # Stay on the Node 22 LTS line until the runtime pin is raised deliberately.
+      - dependency-name: "node"
+        update-types: ["version-update:semver-major"]
   - package-ecosystem: pip
     directory: /scripts/python
     schedule:

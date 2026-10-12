@@ -24,7 +24,7 @@ interface SkeletonBlockProps {
 export function SkeletonBlock({ lines = 4, label = "Loading" }: SkeletonBlockProps) {
   return (
     <div role="status" aria-live="polite" aria-busy="true">
-      <span className="ui-sr-only">{label}</span>
+      <span className="sr-only">{label}</span>
       <AntSkeleton active title={false} paragraph={{ rows: lines }} aria-hidden="true" />
     </div>
   );

@@ -1,5 +1,3 @@
-import "./ui.css";
-
 export { Spinner } from "./Spinner";
 export { Skeleton, SkeletonBlock } from "./Skeleton";
 export { ActionButton } from "./ActionButton";
