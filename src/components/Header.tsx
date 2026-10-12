@@ -32,7 +32,7 @@ export function Header({
         style={{ borderBottom: `1px solid ${token.colorBorderSecondary}` }}
       >
         <Typography.Title level={1} className="brand">
-          <span className="brand-full">XRPL Wallet Sandbox</span>
+          <span className="brand-full">XRPL Wallet Integration</span>
           <span className="brand-short" aria-hidden="true">
             XRPL
           </span>

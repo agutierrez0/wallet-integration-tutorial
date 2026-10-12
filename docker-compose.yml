@@ -1,4 +1,4 @@
-name: xrpl-wallet-sandbox-dev
+name: xrpl-wallet-integration-dev
 
 services:
   web:
@@ -53,4 +53,4 @@ services:
 
 networks:
   sandbox:
-    name: xrpl-wallet-sandbox-dev-network
+    name: xrpl-wallet-integration-dev-network

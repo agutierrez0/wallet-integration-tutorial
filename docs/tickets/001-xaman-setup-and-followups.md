@@ -73,14 +73,12 @@ two in `src/utils/xamanwallet.js` (commit `89f85c1` and earlier) and one in `src
   form (they open as raw JSON).
 
 ## 7. Housekeeping
-- [ ] Delete the old `agutierrez0/xrpl-sandbox` repo (contents already imported to `scripts/`).
+- [x] Deleted the old `agutierrez0/xrpl-sandbox` repo (contents were imported to `scripts/`).
 - [ ] Branches: `origin/wip-may-1` has nothing `main` lacks, safe to delete. `ledger-integration`,
       `signing-test` and `xrpl-integration` hold old CRA-era work (and the leaked key in history);
       review `ledger-integration` for ideas, then delete.
-- [ ] Rename the repo to `xrpl-wallet-integration`:
-  - [ ] Rename on GitHub, then `git remote set-url origin git@github.com:agutierrez0/xrpl-wallet-integration.git`
-  - [ ] `package.json` names `xrpl-wallet-sandbox` / `xrpl-wallet-sandbox-server`
-  - [ ] Compose project names `xrpl-wallet-sandbox-{dev,prod}` (renaming makes Coolify recreate
-        containers and networks)
-  - [ ] `<title>` in `index.html` and the README H1 and rename sentence
-  - [ ] Keep `HISTORY_KEY` (`xrpl-wallet-sandbox:history:v1`) unchanged so stored history survives
+- [x] Renamed the repo to `xrpl-wallet-integration` (GitHub, git remote, package names, compose
+      project names, `<title>`, header and README). The Coolify prod compose project is now
+      `xrpl-wallet-integration-prod`, so Coolify recreates its containers and network on next deploy.
+      The `localStorage` keys (`xrpl-wallet-sandbox:*`) are deliberately unchanged so saved history
+      and the chosen network survive.

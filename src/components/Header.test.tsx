@@ -11,7 +11,7 @@ const radio = (name: string) => screen.getByRole("radio", { name }) as HTMLInput
 describe("Header", () => {
   it("shows the app name and the network switch", () => {
     render(<Header networkId="testnet" onNetwork={noop} />);
-    expect(screen.getByRole("heading", { name: "XRPL Wallet Sandbox" })).toBeTruthy();
+    expect(screen.getByRole("heading", { name: "XRPL Wallet Integration" })).toBeTruthy();
     expect(screen.getByRole("radiogroup", { name: "Network" })).toBeTruthy();
     expect(radio("Testnet").checked).toBe(true);
   });

@@ -1,4 +1,4 @@
-name: xrpl-wallet-sandbox-prod
+name: xrpl-wallet-integration-prod
 
 services:
   web:
@@ -25,4 +25,4 @@ services:
 
 networks:
   default:
-    name: xrpl-wallet-sandbox-prod-network
+    name: xrpl-wallet-integration-prod-network

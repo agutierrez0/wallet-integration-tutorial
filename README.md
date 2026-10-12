@@ -1,8 +1,8 @@
-# XRPL Wallet Integration Sandbox
+# XRPL Wallet Integration
 
 A browser sandbox for XRPL tooling. Connect a wallet (Crossmark, GemWallet, Xaman or a Ledger), build any of 21 transaction types with a form, sign it, and get the signed `tx_blob` plus its hash. Then submit it however you like.
 
-Stack: Vite + React 19 + TypeScript + `xrpl` v5, with a small Hono backend (`server/`) for Xaman. Originally `wallet-integration-tutorial` (CRA, `xrpl` v3); the repo is planned to be renamed `xrpl-wallet-integration`.
+Stack: Vite + React 19 + TypeScript + `xrpl` v5, with a small Hono backend (`server/`) for Xaman. Originally `wallet-integration-tutorial` (CRA, `xrpl` v3), now `xrpl-wallet-integration`.
 
 ## Layout
 
