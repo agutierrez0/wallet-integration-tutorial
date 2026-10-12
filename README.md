@@ -42,7 +42,7 @@ npm test
 
 Create the Xaman keys in the Xaman developer console (https://apps.xumm.dev). Vite proxies `/api` to `http://localhost:3001` (override with `API_PROXY_TARGET`).
 
-Defaults to **testnet**. Devnet is available too. Mainnet is off in the UI until you tick an explicit "this is real XRP" box, and the server refuses mainnet Xaman requests unless `ALLOW_MAINNET=true`.
+The network is a single global switch at the top right of the page (**Testnet**, **Devnet** or **Mainnet**). It defaults to testnet, takes effect immediately with no confirmation, and is remembered in this browser (`localStorage`). Mainnet is made hard to miss instead: a red pill, a red line across the top of the page and a "Mainnet — real XRP" banner under the header. The faucet is hidden on mainnet, and the switch is locked while a connect, sign or submit is running. The server still refuses mainnet Xaman requests unless `ALLOW_MAINNET=true`.
 
 ## Wallets
 
@@ -136,7 +136,7 @@ Production (`docker-compose.prod.yml`, e.g. a Docker Compose resource on Coolify
 
 - **A Xumm/Xaman API secret and key were hardcoded in source in this public repo's git history.** They are in `src/utils/xamanwallet.js` in commit `89f85c1` and earlier, and that commit is reachable from `main`, `ledger-integration`, `signing-test` and `xrpl-integration`. **Rotation is required, not optional:** revoke or regenerate that key pair in the Xaman developer console, and do not reuse it for the new server. Deleting it from the working tree does not remove it from history. A third key in an earlier commit has been reported but is unconfirmed. The `.env` that was deleted from this repo only ever held an empty key.
 - **Secrets never go in the browser or in build args.** Anything in a Vite bundle (including `VITE_*` vars) is public. The Xaman key and secret live only in the server's runtime environment and are never returned or logged.
-- **Mainnet is gated** in the UI and on the server. Wallets must be on the same network as the app; the app warns on a mismatch it can see, but wallets cannot re-report their network after connecting.
+- **Mainnet is marked, not confirmed**, in the UI (red pill, top border and banner), and Xaman mainnet requests are refused by the server unless `ALLOW_MAINNET=true`. Wallets must be on the same network as the app; the app shows a warning strip under the header for a mismatch it can see, but wallets cannot re-report their network after connecting.
 - The Docker, nginx and CSP configuration has never been run. A too-strict CSP will show up as blocked requests in the browser console (Xaman QR image, faucet, wallet extensions).
 - `npm audit` for the web app reports 3 high and 7 low findings, all through `@crossmarkio/sdk` -> `@crossmarkio/typings` (`node-forge`, `elliptic`, an old `xrpl`). None of that code is in the built bundle and no fix is available. The server audit is clean.
 - Only use throwaway keys on test networks.

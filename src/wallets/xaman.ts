@@ -69,6 +69,18 @@ async function readApiError(res: Response): Promise<ApiError> {
 // Turns a non-2xx backend response into a WalletError with a message a person can act on.
 async function toWalletError(res: Response, network?: string): Promise<WalletError> {
   const err = await readApiError(res);
+  if (err.code === "MAINNET_DISABLED") {
+    return new WalletError(
+      "UNSUPPORTED",
+      "This server has mainnet disabled for Xaman. Set ALLOW_MAINNET=true on the server, or use a different wallet.",
+    );
+  }
+  if (err.code === "FORBIDDEN_ORIGIN") {
+    return new WalletError(
+      "UNKNOWN",
+      "The signing backend rejected this site's origin. Add it to ALLOWED_ORIGIN on the server.",
+    );
+  }
   if (err.code === "NETWORK_NOT_ALLOWED" || err.code === "NETWORK_REQUIRED") {
     return new WalletError(
       "UNSUPPORTED",
