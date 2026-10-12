@@ -1,3 +1,4 @@
+import { stripAutofilled } from "./autofill";
 import { WalletError } from "./errors";
 import { unwrapDefault } from "./interop";
 import { probeWithTimeout, runPrompt, throwIfAborted } from "./prompt";
@@ -90,7 +91,7 @@ function assertOk(meta: CrossmarkStatus | undefined, action: string) {
 export const crossmark: WalletAdapter = {
   id: "crossmark",
   name: NAME,
-  capabilities: { signOnly: true, submit: false },
+  capabilities: { signOnly: true, submit: false, walletAutofills: true },
 
   isAvailable() {
     return probeWithTimeout(installed);
@@ -130,7 +131,9 @@ export const crossmark: WalletAdapter = {
       action: "signing",
       signal: ctx?.signal,
       run: async () => {
-        const res = (await sdk.methods.signAndWait(tx as never)) as unknown as SignResult;
+        const res = (await sdk.methods.signAndWait(
+          stripAutofilled(tx) as never,
+        )) as unknown as SignResult;
         const data = res?.response?.data;
         assertOk(data?.meta, "signing");
         if (!data?.txBlob) throw new WalletError("UNKNOWN", "Crossmark: no signed blob returned");

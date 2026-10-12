@@ -1,4 +1,5 @@
 import type { TxJson } from "../lib/tx";
+import { stripAutofilled } from "./autofill";
 import { WalletError } from "./errors";
 import { cancelledError } from "./prompt";
 import type {
@@ -39,16 +40,6 @@ export interface XamanOptions {
 
 const BACKEND_DOWN =
   "Can't reach the signing backend. Start it (docker compose up, or npm run dev in server/) and try again.";
-
-// Xaman fills these itself when it shows the request, so a slow QR scan can't leave us with a
-// LastLedgerSequence that has already passed.
-const AUTOFILLED_FIELDS = ["Sequence", "Fee", "LastLedgerSequence"] as const;
-
-function stripAutofilled(tx: TxJson): TxJson {
-  const copy: TxJson = { ...tx };
-  for (const key of AUTOFILLED_FIELDS) delete copy[key];
-  return copy;
-}
 
 interface ApiError {
   code?: string;

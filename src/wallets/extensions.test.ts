@@ -109,6 +109,24 @@ describe("Crossmark adapter", () => {
     await expect(crossmark.signTransaction(tx)).rejects.toMatchObject({ code: "REJECTED" });
   });
 
+  it("lets Crossmark fill Sequence/Fee/LastLedgerSequence so it doesn't warn they were replaced", async () => {
+    expect(crossmark.capabilities.walletAutofills).toBe(true);
+    cm.methods.signAndWait.mockResolvedValueOnce({
+      response: { data: { txBlob: "CC", meta: {} } },
+    });
+    await crossmark.signTransaction({
+      ...tx,
+      Sequence: 7,
+      Fee: "12",
+      LastLedgerSequence: 123456,
+    });
+    const sent = cm.methods.signAndWait.mock.calls.at(-1)![0] as Record<string, unknown>;
+    expect(sent).not.toHaveProperty("Sequence");
+    expect(sent).not.toHaveProperty("Fee");
+    expect(sent).not.toHaveProperty("LastLedgerSequence");
+    expect(sent).toMatchObject(tx);
+  });
+
   it("waits for the SDK's background detection instead of reporting a false negative", async () => {
     cm.sync.isInstalled.mockReturnValueOnce(false).mockReturnValueOnce(false).mockReturnValue(true);
     await expect(crossmark.isAvailable()).resolves.toBe(true);
