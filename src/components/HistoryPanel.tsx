@@ -1,13 +1,14 @@
-import { useEffect, useId, useRef, useState } from "react";
-import type { HistoryEntry } from "../lib/historyTypes";
+import { DeleteOutlined, DownOutlined, RightOutlined } from "@ant-design/icons";
+import { Button, Card, Empty, Flex, Popconfirm, Tag, Tooltip, Typography, theme } from "antd";
+import { useEffect, useId, useState } from "react";
+import { useAction } from "../hooks/useAction";
 import { toUserError } from "../lib/errors";
 import { explorerUrl, formatRelativeTime, lookupTx, shortHash, summarizeTx } from "../lib/history";
 import { canCheckOnChain } from "../lib/historyEntries";
+import type { HistoryEntry } from "../lib/historyTypes";
 import { NETWORKS } from "../lib/networks";
-import { useAction } from "../hooks/useAction";
 import { ActionButton, Alert, StatusPill } from "./ui";
 import type { PillTone } from "./ui";
-import "./history.css";
 
 export interface HistoryPanelProps {
   entries: HistoryEntry[];
@@ -67,6 +68,8 @@ function foundText(engineResult: string | undefined, validated: boolean | undefi
   return validated === false ? `Found, not yet validated: ${code}` : `Found: ${code}`;
 }
 
+const NET_COLOR = { testnet: "cyan", devnet: "purple", mainnet: "red" } as const;
+
 function Row({
   entry,
   disabled,
@@ -82,9 +85,8 @@ function Row({
   onCheckStatus?: (e: HistoryEntry) => Promise<void>;
   now: number;
 }) {
-  const [copied, setCopied] = useState<"idle" | "ok" | "fail">("idle");
-  const timer = useRef<number | undefined>(undefined);
-  useEffect(() => () => window.clearTimeout(timer.current), []);
+  const { token } = theme.useToken();
+  const [copied, setCopied] = useState(false);
 
   const check = useAction(async (): Promise<CheckResult> => {
     if (onCheckStatus) {
@@ -99,17 +101,6 @@ function Row({
       engineResult: r.engineResult,
     };
   });
-
-  const copy = async () => {
-    try {
-      await navigator.clipboard.writeText(entry.hash);
-      setCopied("ok");
-    } catch {
-      setCopied("fail");
-    }
-    window.clearTimeout(timer.current);
-    timer.current = window.setTimeout(() => setCopied("idle"), 1800);
-  };
 
   const status = describeStatus(entry);
   const net = NETWORKS[entry.network];
@@ -136,97 +127,105 @@ function Row({
   }
 
   return (
-    <li className={`hp-row hp-net-${entry.network}`}>
-      <button
-        type="button"
-        className="hp-main"
-        onClick={() => onRestore(entry)}
-        disabled={disabled}
-        aria-label={`Load ${entry.txType}${summary ? `: ${summary}` : ""} into the editor`}
-      >
-        <span className="hp-top">
-          <span className="hp-type">{entry.txType}</span>
-          <span className={`hp-net-badge hp-net-badge-${entry.network}`}>{entry.network}</span>
-        </span>
-        {summary && <span className="hp-summary">{summary}</span>}
-        <span className="hp-meta">
-          <StatusPill tone={status.tone}>{status.label}</StatusPill>
-          <time className="hp-time" dateTime={new Date(entry.createdAt).toISOString()} title={full}>
-            {formatRelativeTime(entry.createdAt)}
-          </time>
-          <span className="hp-load" aria-hidden="true">
-            Load ›
-          </span>
-        </span>
-      </button>
-
-      <div className="hp-side">
-        <div className="hp-hash">
-          <code title={entry.hash}>{shortHash(entry.hash)}</code>
-          <button
-            type="button"
-            className="hp-icon-btn"
-            onClick={copy}
-            aria-label={`Copy transaction hash ${entry.hash}`}
-          >
-            {copied === "ok" ? "Copied ✓" : copied === "fail" ? "Copy failed" : "Copy"}
-          </button>
-        </div>
-
-        {onChain ? (
-          <a
-            className="hp-link"
-            href={explorerUrl(entry.network, entry.hash)}
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            View on explorer ↗
-          </a>
-        ) : checkable ? (
-          <div className="hp-unsub">
-            <span className="hp-muted">
-              {entry.status === "failed"
-                ? "Submit failed, outcome unknown"
-                : check.status === "success"
-                  ? "Checked just now"
-                  : "Not checked on-chain"}
-            </span>
-            <ActionButton
-              variant="secondary"
-              className="hp-check"
-              loading={check.status === "loading"}
-              loadingLabel="Checking…"
-              onClick={() => void check.run()}
+    <li
+      style={{
+        padding: `${token.paddingSM}px 0`,
+        borderBottom: `1px solid ${token.colorBorderSecondary}`,
+      }}
+    >
+      <Flex justify="space-between" align="flex-start" gap="middle" wrap>
+        <Flex vertical gap={4} style={{ minWidth: 0, flex: "1 1 260px" }}>
+          <Flex align="center" gap="small" wrap>
+            <Typography.Text strong>{entry.txType}</Typography.Text>
+            <Tag color={NET_COLOR[entry.network]} style={{ marginInlineEnd: 0 }}>
+              {entry.network}
+            </Tag>
+            <StatusPill tone={status.tone}>{status.label}</StatusPill>
+          </Flex>
+          {summary && <Typography.Text type="secondary">{summary}</Typography.Text>}
+          <Flex align="center" gap="small" wrap>
+            <Typography.Text
+              code
+              copyable={{
+                text: entry.hash,
+                tooltips: false,
+                onCopy: () => setCopied(true),
+              }}
+              title={entry.hash}
             >
-              Check on-chain
-            </ActionButton>
-          </div>
-        ) : null}
+              {shortHash(entry.hash)}
+            </Typography.Text>
+            <Tooltip title={full}>
+              <time dateTime={new Date(entry.createdAt).toISOString()}>
+                <Typography.Text type="secondary">
+                  {formatRelativeTime(entry.createdAt)}
+                </Typography.Text>
+              </time>
+            </Tooltip>
+          </Flex>
+        </Flex>
 
-        <button
-          type="button"
-          className="hp-icon-btn hp-remove"
-          onClick={() => onRemove(entry.id)}
-          aria-label={`Remove ${entry.txType} from history`}
-        >
-          Remove
-        </button>
-      </div>
+        <Flex align="center" gap="small" wrap>
+          {onChain ? (
+            <Typography.Link
+              href={explorerUrl(entry.network, entry.hash)}
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              View on explorer
+            </Typography.Link>
+          ) : checkable ? (
+            <>
+              <Typography.Text type="secondary">
+                {entry.status === "failed"
+                  ? "Submit failed, outcome unknown"
+                  : check.status === "success"
+                    ? "Checked just now"
+                    : "Not checked on-chain"}
+              </Typography.Text>
+              <ActionButton
+                variant="secondary"
+                loading={check.status === "loading"}
+                loadingLabel="Checking…"
+                onClick={() => void check.run()}
+              >
+                Check on-chain
+              </ActionButton>
+            </>
+          ) : null}
+          <Button
+            type="primary"
+            ghost
+            disabled={disabled}
+            onClick={() => onRestore(entry)}
+            aria-label={`Load ${entry.txType}${summary ? `: ${summary}` : ""} into the editor`}
+          >
+            Load
+          </Button>
+          <Button
+            type="text"
+            danger
+            icon={<DeleteOutlined aria-hidden="true" />}
+            onClick={() => onRemove(entry.id)}
+            aria-label={`Remove ${entry.txType} from history`}
+          />
+        </Flex>
+      </Flex>
 
-      <span className="hp-sr" aria-live="polite">
-        {copied === "ok" ? "Hash copied" : copied === "fail" ? "Could not copy hash" : ""}
+      <span className="ui-sr-only" aria-live="polite">
+        {copied ? "Hash copied" : ""}
       </span>
 
       {/* Always rendered so screen readers announce changes to it. */}
-      <p
-        className={`hp-result${resultText?.startsWith("Found") ? " hp-result-ok" : ""}`}
-        role="status"
-        aria-live="polite"
-      >
-        {resultText}
-      </p>
+      <div role="status" aria-live="polite" style={{ marginTop: resultText ? token.marginXS : 0 }}>
+        {resultText && (
+          <Typography.Text type={resultText.startsWith("Found") ? "success" : "secondary"}>
+            {resultText}
+          </Typography.Text>
+        )}
+      </div>
       {check.status === "error" && (
-        <div className="hp-alert">
+        <div style={{ marginTop: token.marginXS }}>
           <Alert
             error={toUserError(check.error)}
             onRetry={() => void check.run()}
@@ -249,7 +248,6 @@ export function HistoryPanel({
 }: HistoryPanelProps) {
   const [open, setOpen] = useState(readOpen);
   const [shown, setShown] = useState(PAGE);
-  const [confirming, setConfirming] = useState(false);
   const [now, setNow] = useState(() => Date.now());
   const bodyId = useId();
 
@@ -259,11 +257,6 @@ export function HistoryPanel({
     const id = window.setInterval(() => setNow(Date.now()), 30_000);
     return () => window.clearInterval(id);
   }, [open]);
-
-  // Leave the clear confirmation if the list changes underneath it.
-  useEffect(() => {
-    if (entries.length === 0) setConfirming(false);
-  }, [entries.length]);
 
   const toggle = () => {
     const next = !open;
@@ -275,38 +268,34 @@ export function HistoryPanel({
   const hidden = entries.length - visible.length;
 
   return (
-    <section className="card hp" aria-label="Transaction history">
-      <div className="hp-head">
-        <h2 className="hp-title">
-          <button
-            type="button"
-            className="hp-toggle"
-            aria-expanded={open}
-            aria-controls={bodyId}
-            onClick={toggle}
-          >
-            <span className={`hp-chevron${open ? " hp-chevron-open" : ""}`} aria-hidden="true">
-              ›
-            </span>
-            History ({entries.length})
-          </button>
-        </h2>
-        <span className="hp-note">Stored in this browser only</span>
-      </div>
-
-      <div id={bodyId} className="hp-body" hidden={!open}>
+    <Card
+      aria-label="Transaction history"
+      title={
+        <Button
+          type="text"
+          aria-expanded={open}
+          aria-controls={bodyId}
+          onClick={toggle}
+          icon={open ? <DownOutlined aria-hidden="true" /> : <RightOutlined aria-hidden="true" />}
+        >
+          History ({entries.length})
+        </Button>
+      }
+      extra={<Typography.Text type="secondary">Stored in this browser only</Typography.Text>}
+    >
+      <div id={bodyId} hidden={!open}>
         {!available ? (
-          <p className="hp-empty" role="status">
+          <Typography.Paragraph type="secondary" role="status" style={{ margin: 0 }}>
             History unavailable (browser storage blocked)
-          </p>
+          </Typography.Paragraph>
         ) : entries.length === 0 ? (
-          <p className="hp-empty">
-            Nothing here yet. Transactions you sign will show up here, so you can copy the hash,
-            open it on the explorer, or load it back into the editor.
-          </p>
+          <Empty
+            image={Empty.PRESENTED_IMAGE_SIMPLE}
+            description="Nothing here yet. Transactions you sign will show up here, so you can copy the hash, open it on the explorer, or load it back into the editor."
+          />
         ) : (
           <>
-            <ul className="hp-list">
+            <ul style={{ listStyle: "none", margin: 0, padding: 0 }}>
               {visible.map((entry) => (
                 <Row
                   key={entry.id}
@@ -320,39 +309,27 @@ export function HistoryPanel({
               ))}
             </ul>
 
-            <div className="hp-foot">
-              {hidden > 0 && (
-                <button type="button" className="hp-more" onClick={() => setShown((n) => n + PAGE)}>
-                  Show more ({hidden})
-                </button>
-              )}
-              {confirming ? (
-                // biome-ignore lint/a11y/useSemanticElements: inline confirm strip; <fieldset> default box/legend would change the layout, role=group with a name is equivalent
-                <span className="hp-confirm" role="group" aria-label="Confirm clear history">
-                  <span>Clear all {entries.length}?</span>
-                  <button
-                    type="button"
-                    className="hp-danger"
-                    onClick={() => {
-                      setConfirming(false);
-                      onClear();
-                    }}
-                  >
-                    Yes, clear
-                  </button>
-                  <button type="button" onClick={() => setConfirming(false)}>
-                    Cancel
-                  </button>
-                </span>
+            <Flex justify="space-between" align="center" wrap gap="small" style={{ marginTop: 12 }}>
+              {hidden > 0 ? (
+                <Button onClick={() => setShown((n) => n + PAGE)}>Show more ({hidden})</Button>
               ) : (
-                <button type="button" className="hp-clear" onClick={() => setConfirming(true)}>
-                  Clear all
-                </button>
+                <span />
               )}
-            </div>
+              <Popconfirm
+                title={`Clear all ${entries.length}?`}
+                okText="Yes, clear"
+                cancelText="Cancel"
+                okButtonProps={{ danger: true }}
+                onConfirm={onClear}
+              >
+                <Button type="text" danger>
+                  Clear all
+                </Button>
+              </Popconfirm>
+            </Flex>
           </>
         )}
       </div>
-    </section>
+    </Card>
   );
 }

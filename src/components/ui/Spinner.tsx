@@ -1,4 +1,4 @@
-import "./ui.css";
+import { LoadingOutlined } from "@ant-design/icons";
 
 interface SpinnerProps {
   size?: number;
@@ -6,7 +6,7 @@ interface SpinnerProps {
 }
 
 export function Spinner({ size = 16, label }: SpinnerProps) {
-  const style = { width: size, height: size };
-  if (label) return <span className="ui-spinner" style={style} role="status" aria-label={label} />;
-  return <span className="ui-spinner" style={style} aria-hidden="true" />;
+  const style = { fontSize: size };
+  if (label) return <LoadingOutlined spin style={style} role="status" aria-label={label} />;
+  return <LoadingOutlined spin style={style} aria-hidden="true" />;
 }

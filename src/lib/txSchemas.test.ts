@@ -1028,7 +1028,7 @@ describe("isFieldActive (single showWhen rule)", () => {
     ] as const) {
       expect(isFieldVisible(field(eq), values)).toBe(isFieldActive(field(eq), values));
     }
-  });
+  }, 30_000); // importing TxForm pulls in antd, which is slow when many workers load it at once
 });
 
 describe("valuesFromTx reports what it ignores", () => {

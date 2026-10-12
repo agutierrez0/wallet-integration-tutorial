@@ -1,3 +1,4 @@
+import { Badge, Collapse, Form } from "antd";
 import { useEffect, useState } from "react";
 import { isFieldActive } from "../../lib/txSchemas";
 import type {
@@ -17,7 +18,7 @@ import { SelectField } from "./fields/SelectField";
 import { TextField } from "./fields/TextField";
 import { ToggleField } from "./fields/ToggleField";
 import { XrpField } from "./fields/XrpField";
-import "./form.css";
+import { VisuallyHidden, visuallyHiddenStyle } from "./VisuallyHidden";
 
 export interface TxFormProps {
   schema: TxSchema;
@@ -113,7 +114,7 @@ export function TxForm({
     setTouched((prev) => (prev.has(name) ? prev : new Set(prev).add(name)));
 
   const renderField = (def: FieldDef) => (
-    <div className="txf-item" key={`${schema.type}:${def.name}`}>
+    <div key={`${schema.type}:${def.name}`}>
       {renderControl(def, {
         def,
         value: values[def.name],
@@ -128,32 +129,42 @@ export function TxForm({
 
   return (
     <AlertFieldContext.Provider value={alertName}>
-      <fieldset className="txf" disabled={disabled}>
-        <legend className="txf-sr">{schema.label} fields</legend>
-        <div className="txf-sr" role="status" aria-live="polite">
-          {others > 0 ? `${others} more field${others === 1 ? " needs" : "s need"} attention` : ""}
-        </div>
-        {main.map(renderField)}
+      {/* component={false}: no <form> element, so Enter in a field can never submit/reload. */}
+      <Form component={false} layout="vertical" requiredMark="optional" disabled={disabled}>
+        <fieldset style={{ border: 0, margin: 0, padding: 0, minWidth: 0 }}>
+          <legend style={visuallyHiddenStyle}>{schema.label} fields</legend>
+          <VisuallyHidden role="status" aria-live="polite">
+            {others > 0
+              ? `${others} more field${others === 1 ? " needs" : "s need"} attention`
+              : ""}
+          </VisuallyHidden>
+          {main.map(renderField)}
 
-        {advanced.length > 0 && (
-          <details
-            className="txf-advanced"
-            open={advancedOpen}
-            onToggle={(e) => setAdvancedOpen((e.currentTarget as HTMLDetailsElement).open)}
-          >
-            <summary>
-              Advanced options
-              {advancedFilled > 0 && (
-                <span className="txf-count">
-                  {advancedFilled}
-                  <span className="txf-sr"> filled</span>
-                </span>
-              )}
-            </summary>
-            <div className="txf-advanced-body">{advanced.map(renderField)}</div>
-          </details>
-        )}
-      </fieldset>
+          {advanced.length > 0 && (
+            <Collapse
+              ghost
+              size="small"
+              activeKey={advancedOpen ? ["advanced"] : []}
+              onChange={(keys) => setAdvancedOpen(keys.length > 0)}
+              items={[
+                {
+                  key: "advanced",
+                  label: (
+                    <span>
+                      Advanced options{" "}
+                      {advancedFilled > 0 && (
+                        <Badge count={advancedFilled} color="blue" size="small" />
+                      )}
+                      {advancedFilled > 0 && <VisuallyHidden> filled</VisuallyHidden>}
+                    </span>
+                  ),
+                  children: advanced.map(renderField),
+                },
+              ]}
+            />
+          )}
+        </fieldset>
+      </Form>
     </AlertFieldContext.Provider>
   );
 }

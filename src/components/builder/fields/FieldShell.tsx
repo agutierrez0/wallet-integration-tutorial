@@ -1,4 +1,5 @@
-import { createContext, useContext, useId, type ReactNode } from "react";
+import { Form, Typography, theme } from "antd";
+import { createContext, type ReactNode, useContext, useId } from "react";
 import type { FieldDef, FieldValue } from "../../../lib/txSchemaTypes";
 
 // TxForm provides the name of the single field whose error is announced assertively
@@ -27,15 +28,17 @@ export interface ControlIds {
 interface ShellProps {
   def: FieldDef;
   error?: string;
-  // Render as a fieldset+legend instead of label+input (for multi-input fields).
-  group?: boolean;
-  className?: string;
+  // Hide the Form.Item label (the control renders its own, e.g. a switch).
+  inlineLabel?: boolean;
   children: (ids: ControlIds) => ReactNode;
 }
 
 // Shared label / required marker / help / error chrome so every kind behaves the same.
-export function FieldShell({ def, error, group, className, children }: ShellProps) {
+// Help and errors are rendered here (not through Form.Item's `help`) so the assertive
+// role="alert" stays on a single error and aria-describedby is wired to real ids.
+export function FieldShell({ def, error, inlineLabel, children }: ShellProps) {
   const uid = useId();
+  const { token } = theme.useToken();
   const id = `${uid}-control`;
   const helpId = `${uid}-help`;
   const errId = `${uid}-err`;
@@ -45,54 +48,49 @@ export function FieldShell({ def, error, group, className, children }: ShellProp
   const describedBy =
     [def.help ? helpId : "", error ? errId : ""].filter(Boolean).join(" ") || undefined;
 
-  const labelContent = (
-    <>
-      {def.label}
-      {required ? (
-        <>
-          <span className="txf-req" aria-hidden="true">
-            *
-          </span>
-          <span className="txf-sr">(required)</span>
-        </>
-      ) : (
-        <span className="txf-opt">optional</span>
-      )}
-    </>
-  );
-
-  const body = (
-    <>
-      {children({ id, describedBy, invalid: !!error, required })}
-      {def.help && (
-        <p id={helpId} className="txf-help">
-          {def.help}
-        </p>
-      )}
-      {error && (
-        <p id={errId} className="txf-error" role={errorRole}>
-          {error}
-        </p>
-      )}
-    </>
-  );
-
-  const cls = `txf-field${className ? ` ${className}` : ""}${error ? " is-invalid" : ""}`;
-
-  if (group) {
-    return (
-      <fieldset className={cls} aria-describedby={describedBy}>
-        <legend className="txf-label">{labelContent}</legend>
-        {body}
-      </fieldset>
-    );
-  }
   return (
-    <div className={cls}>
-      <label className="txf-label" htmlFor={id}>
-        {labelContent}
-      </label>
-      {body}
-    </div>
+    <Form.Item
+      label={inlineLabel ? undefined : def.label}
+      htmlFor={id}
+      required={required}
+      style={{ marginBottom: token.marginLG }}
+    >
+      <div data-field-invalid={error ? "true" : undefined}>
+        {children({ id, describedBy, invalid: !!error, required })}
+        {def.help && (
+          <Typography.Text
+            id={helpId}
+            type="secondary"
+            style={{ display: "block", marginTop: token.marginXXS, fontSize: token.fontSizeSM }}
+          >
+            {def.help}
+          </Typography.Text>
+        )}
+        {error && (
+          <Typography.Text
+            id={errId}
+            role={errorRole}
+            type="danger"
+            style={{ display: "block", marginTop: token.marginXXS, fontSize: token.fontSizeSM }}
+          >
+            {error}
+          </Typography.Text>
+        )}
+      </div>
+    </Form.Item>
+  );
+}
+
+// Small secondary line under a control (live hints such as byte counts).
+export function Hint({ children }: { children: ReactNode }) {
+  const { token } = theme.useToken();
+  return (
+    <Typography.Text
+      type="secondary"
+      aria-live="polite"
+      style={{ display: "block", marginTop: token.marginXXS, fontSize: token.fontSizeSM }}
+    >
+      {children}
+    </Typography.Text>
   );
 }

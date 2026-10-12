@@ -1,3 +1,4 @@
+import { Alert, Card, Flex, Layout, Skeleton, Steps, Typography } from "antd";
 import { useEffect, useRef, useState } from "react";
 import { ADAPTERS, WalletError } from "./wallets";
 import type { CancelResult, WalletPrompt } from "./wallets";
@@ -33,7 +34,7 @@ import { TxEditor } from "./components/TxEditor";
 import { QrPrompt } from "./components/QrPrompt";
 import { HistoryPanel } from "./components/HistoryPanel";
 import { SignedOutput, resultCode } from "./components/SignedOutput";
-import { Alert, SkeletonBlock, Steps, stepsAt } from "./components/ui";
+import { UserErrorAlert } from "./components/shell/UserErrorAlert";
 
 interface Signed {
   blob: string;
@@ -48,6 +49,15 @@ interface AppNotice extends RestoreNotice {
 }
 
 type SignPhase = "autofill" | "wallet";
+
+const STEP_TITLES = ["Connect", "Build", "Sign", "Submit"];
+
+// `at` is the step in progress (0-3); 4 means every step is done. `failed` marks it as an error.
+interface Progress {
+  at: number;
+  failed: boolean;
+}
+const stepsAt = (at: number, failed = false): Progress => ({ at, failed });
 
 async function readAvailability(): Promise<Record<string, boolean>> {
   const entries = await Promise.all(
@@ -383,7 +393,7 @@ export default function App() {
   const walletName = adapter?.name ?? "wallet";
 
   return (
-    <>
+    <Layout className="app-layout">
       <Header
         networkId={networkId}
         onNetwork={changeNetwork}
@@ -392,115 +402,136 @@ export default function App() {
         hintNote={hintNote}
         mismatch={networkMismatch}
       />
-      <main>
-        <p className="muted">
-          Connect any wallet, sign a transaction, get the blob and hash, then submit it however you
-          like.
-        </p>
+      <Layout.Content className="app-content">
+        <Flex orientation="vertical" gap={16}>
+          <Typography.Paragraph type="secondary" className="intro">
+            Connect any wallet, sign a transaction, get the blob and hash, then submit it however
+            you like.
+          </Typography.Paragraph>
 
-        <Steps steps={steps} />
-        <div className="ui-sr-only" aria-live="polite" role="status">
-          {announce}
-        </div>
-
-        <WalletPicker
-          adapters={ADAPTERS}
-          available={available}
-          selectedId={adapterId}
-          session={session}
-          connect={connect}
-          fund={fund}
-          canFund={!!network.faucet}
-          locked={busy && connect.status !== "loading"}
-          disconnecting={disconnect.status === "loading"}
-          onSelect={selectAdapter}
-          onConnect={() => void connect.run()}
-          onCancelConnect={() => void cancelPending()}
-          onDisconnect={() => void disconnectNow()}
-          onFund={() => void fund.run()}
-          onRecheck={recheck}
-        />
-        <TxEditor
-          value={txText}
-          account={session?.address ?? ""}
-          signing={signing}
-          busy={submitting}
-          signLabel={adapter ? `Autofill and sign with ${adapter.name}` : "Sign"}
-          signingLabel={
-            signPhase === "autofill"
-              ? `Autofilling from ${network.label}…`
-              : `Waiting for approval in ${walletName}…`
-          }
-          disabledReason={
-            networkMismatch ??
-            (session
-              ? undefined
-              : "Connect a wallet above to sign. Signing is disabled until then.")
-          }
-          loadRequest={loadRequest}
-          onChange={changeTx}
-          onSign={() => void sign.run()}
-          onCancel={() => void cancelPending()}
-        />
-
-        {notices.map((n, i) => (
-          <Alert
-            // biome-ignore lint/suspicious/noArrayIndexKey: notices have no id; the list is replaced wholesale per restore (nonce)
-            key={`${loadRequest.nonce}-${i}`}
-            variant={n.tone}
-            message={n.message}
-            onDismiss={() => setNotices((ns) => ns.filter((x) => x !== n))}
+          <Steps
+            size="small"
+            responsive
+            current={Math.min(steps.at, STEP_TITLES.length - 1)}
+            status={steps.failed ? "error" : steps.at >= STEP_TITLES.length ? "finish" : "process"}
+            items={STEP_TITLES.map((title) => ({ title }))}
           />
-        ))}
+          <div className="sr-only" aria-live="polite" role="status">
+            {announce}
+          </div>
 
-        {signError && (
-          <Alert error={signError} onRetry={() => void sign.run()} onDismiss={sign.reset} />
-        )}
-        {signCancelled && (
-          <p className="muted" role="status">
-            Cancelled. Nothing was signed.
-          </p>
-        )}
+          <WalletPicker
+            adapters={ADAPTERS}
+            available={available}
+            selectedId={adapterId}
+            session={session}
+            connect={connect}
+            fund={fund}
+            canFund={!!network.faucet}
+            locked={busy && connect.status !== "loading"}
+            disconnecting={disconnect.status === "loading"}
+            onSelect={selectAdapter}
+            onConnect={() => void connect.run()}
+            onCancelConnect={() => void cancelPending()}
+            onDisconnect={() => void disconnectNow()}
+            onFund={() => void fund.run()}
+            onRecheck={recheck}
+          />
+          <TxEditor
+            value={txText}
+            account={session?.address ?? ""}
+            signing={signing}
+            busy={submitting}
+            signLabel={adapter ? `Autofill and sign with ${adapter.name}` : "Sign"}
+            signingLabel={
+              signPhase === "autofill"
+                ? `Autofilling from ${network.label}…`
+                : `Waiting for approval in ${walletName}…`
+            }
+            disabledReason={
+              networkMismatch ??
+              (session
+                ? undefined
+                : "Connect a wallet above to sign. Signing is disabled until then.")
+            }
+            loadRequest={loadRequest}
+            onChange={changeTx}
+            onSign={() => void sign.run()}
+            onCancel={() => void cancelPending()}
+          />
 
-        {signing && (
-          <section className="card">
-            <h2>Signed output</h2>
-            <SkeletonBlock
-              lines={6}
-              label={
-                signPhase === "autofill"
-                  ? "Autofilling transaction…"
-                  : `Waiting for approval in ${walletName}…`
-              }
+          {notices.map((n, i) => (
+            <Alert
+              // biome-ignore lint/suspicious/noArrayIndexKey: notices have no id; the list is replaced wholesale per restore (nonce)
+              key={`${loadRequest.nonce}-${i}`}
+              type={n.tone}
+              showIcon
+              title={n.message}
+              closable={{
+                onClose: () => setNotices((ns) => ns.filter((x) => x !== n)),
+                "aria-label": "Dismiss",
+              }}
             />
-          </section>
-        )}
+          ))}
 
-        {signed && (
-          <SignedOutput
-            key={signed.blob}
-            network={network}
-            walletName={walletName}
-            blob={signed.blob}
-            filled={signed.filled}
-            canWalletSubmit={!!adapter?.capabilities.submit}
-            submitX={submitX}
-            submitW={submitW}
-            lookup={{ status: check.status, result: check.data }}
-            onSubmitXrplJs={() => void submitX.run()}
-            onSubmitWallet={() => void submitW.run()}
-            onCancelWallet={() => void cancelPending()}
+          {signError && (
+            <UserErrorAlert
+              error={signError}
+              onRetry={() => void sign.run()}
+              onDismiss={sign.reset}
+            />
+          )}
+          {signCancelled && (
+            <div role="status">
+              <Typography.Text type="secondary">Cancelled. Nothing was signed.</Typography.Text>
+            </div>
+          )}
+
+          {signing && (
+            <Card
+              title={
+                <Typography.Title level={2} className="card-title">
+                  Signed output
+                </Typography.Title>
+              }
+            >
+              <div role="status" aria-live="polite" aria-busy="true">
+                <Typography.Text type="secondary">
+                  {signPhase === "autofill"
+                    ? "Autofilling transaction…"
+                    : `Waiting for approval in ${walletName}…`}
+                </Typography.Text>
+                <Skeleton active title={false} paragraph={{ rows: 5 }} className="skeleton-gap" />
+              </div>
+            </Card>
+          )}
+
+          {signed && (
+            <SignedOutput
+              key={signed.blob}
+              network={network}
+              walletName={walletName}
+              blob={signed.blob}
+              filled={signed.filled}
+              canWalletSubmit={!!adapter?.capabilities.submit}
+              submitX={submitX}
+              submitW={submitW}
+              lookup={{ status: check.status, result: check.data }}
+              onSubmitXrplJs={() => void submitX.run()}
+              onSubmitWallet={() => void submitW.run()}
+              onCancelWallet={() => void cancelPending()}
+            />
+          )}
+          <HistoryPanel
+            entries={history.entries}
+            available={history.available}
+            disabled={busy}
+            onRestore={restore}
+            onRemove={history.remove}
+            onClear={history.clear}
+            onCheckStatus={checkStatus}
           />
-        )}
-        <HistoryPanel
-          entries={history.entries}
-          available={history.available}
-          disabled={busy}
-          onRestore={restore}
-          onRemove={history.remove}
-          onClear={history.clear}
-          onCheckStatus={checkStatus}
-        />
+        </Flex>
         {prompt && adapter && (
           <QrPrompt
             prompt={prompt}
@@ -508,7 +539,7 @@ export default function App() {
             onCancel={() => void cancelPending()}
           />
         )}
-      </main>
-    </>
+      </Layout.Content>
+    </Layout>
   );
 }

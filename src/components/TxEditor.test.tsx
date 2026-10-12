@@ -1,25 +1,28 @@
-import { createElement } from "react";
-import { renderToStaticMarkup } from "react-dom/server";
-import { describe, expect, it } from "vitest";
+// @vitest-environment jsdom
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import type { TxSchema } from "../lib/txSchemaTypes";
 import { activeValues, buildText } from "./builder/TxBuilder";
 import { TxEditor } from "./TxEditor";
-import type { TxSchema } from "../lib/txSchemaTypes";
+
+afterEach(() => cleanup());
 
 const noop = () => {};
-function render(value: string, extra: Record<string, unknown> = {}) {
-  return renderToStaticMarkup(
-    createElement(TxEditor, {
-      value,
-      signing: false,
-      signLabel: "Sign",
-      signingLabel: "Signing",
-      onChange: noop,
-      onSign: noop,
-      onCancel: noop,
-      ...extra,
-    }),
+function setup(value: string, extra: Record<string, unknown> = {}) {
+  return render(
+    <TxEditor
+      value={value}
+      signing={false}
+      signLabel="Sign"
+      signingLabel="Signing"
+      onChange={noop}
+      onSign={noop}
+      onCancel={noop}
+      {...extra}
+    />,
   );
 }
+const text = () => document.body.textContent ?? "";
 
 const PAYMENT = JSON.stringify({
   TransactionType: "Payment",
@@ -33,38 +36,75 @@ const ACCOUNT_SET = JSON.stringify({
 
 describe("TxEditor", () => {
   it("asks for a type and disables Sign when nothing is selected", () => {
-    const html = render("");
-    expect(html).toContain("Choose a transaction type to get started.");
-    expect(html).toMatch(/<button[^>]*disabled[^>]*>(?:(?!<\/button>).)*Sign/s);
-    expect(html).not.toContain("Transaction JSON (preview)");
+    setup("");
+    expect(text()).toContain("Choose a transaction type to get started.");
+    expect((screen.getByRole("button", { name: "Sign" }) as HTMLButtonElement).disabled).toBe(true);
+    expect(text()).not.toContain("Transaction JSON (preview)");
   });
 
   it("shows only Payment fields for a Payment", () => {
-    const html = render(PAYMENT);
-    expect(html).toContain("Destination");
-    expect(html).not.toContain("Domain");
-    expect(html).not.toContain("Set flag");
-    expect(html).toContain("Transaction JSON (preview)");
-    expect(html).toContain("filled in automatically when you sign");
+    setup(PAYMENT);
+    expect(screen.getByLabelText(/Destination/)).toBeTruthy();
+    expect(screen.queryByLabelText(/Domain/)).toBeNull();
+    expect(text()).not.toContain("Set flag");
+    expect(text()).toContain("Transaction JSON (preview)");
+    expect(text()).toContain("filled in automatically when you sign");
   });
 
   it("shows only AccountSet fields for an AccountSet", () => {
-    const html = render(ACCOUNT_SET);
-    expect(html).toContain("Domain");
-    expect(html).not.toContain("Destination");
-    expect(html).not.toContain("Amount");
+    setup(ACCOUNT_SET);
+    expect(text()).toContain("Domain");
+    expect(screen.queryByLabelText(/Destination/)).toBeNull();
+    expect(text()).not.toContain("Amount");
   });
 
   it("starts in raw mode for a tx type it cannot show as a form", () => {
-    const html = render(JSON.stringify({ TransactionType: "AMMCreate", Amount: "1" }));
-    expect(html).toContain("Transaction JSON");
-    expect(html).toContain("<textarea");
-    expect(html).toContain("Back to form");
+    setup(JSON.stringify({ TransactionType: "AMMCreate", Amount: "1" }));
+    expect(screen.getByLabelText("Transaction JSON").tagName).toBe("TEXTAREA");
+    expect((screen.getByRole("radio", { name: "Raw JSON" }) as HTMLInputElement).checked).toBe(
+      true,
+    );
   });
 
   it("keeps the no-wallet hint once a type is chosen", () => {
-    const html = render(ACCOUNT_SET, { disabledReason: "Connect a wallet in step 2 to sign." });
-    expect(html).toContain("Connect a wallet in step 2 to sign.");
+    setup(ACCOUNT_SET, { disabledReason: "Connect a wallet in step 2 to sign." });
+    expect(text()).toContain("Connect a wallet in step 2 to sign.");
+  });
+
+  it("clicking Sign with an invalid form reveals the errors and focuses the first bad field", async () => {
+    const onSign = vi.fn();
+    setup(JSON.stringify({ TransactionType: "Payment" }), { onSign });
+    const sign = screen.getByRole("button", { name: "Sign" });
+    expect(sign.getAttribute("aria-disabled")).toBe("true");
+    expect((sign as HTMLButtonElement).disabled).toBe(false);
+    fireEvent.click(sign);
+    expect(onSign).not.toHaveBeenCalled();
+    expect(await screen.findAllByRole("alert")).toHaveLength(1);
+    await waitFor(() => expect(document.activeElement).toBe(screen.getByLabelText(/Destination/)));
+  });
+
+  it("signs when the form is valid", () => {
+    const onSign = vi.fn();
+    setup(PAYMENT, { onSign, account: "rHb9CJAWyB4rj91VRWn96DkukG4bwdtyTh" });
+    fireEvent.click(screen.getByRole("button", { name: "Sign" }));
+    expect(onSign).toHaveBeenCalledTimes(1);
+  });
+
+  it("shows the signing label and a Cancel button while signing", () => {
+    const onCancel = vi.fn();
+    setup(PAYMENT, { signing: true, signingLabel: "Waiting for approval", onCancel });
+    expect(text()).toContain("Waiting for approval");
+    fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+    expect(onCancel).toHaveBeenCalledTimes(1);
+  });
+
+  it("switches to raw JSON and back from the mode control", () => {
+    const onChange = vi.fn();
+    setup(PAYMENT, { onChange });
+    fireEvent.click(screen.getByRole("radio", { name: "Raw JSON" }));
+    expect(screen.getByLabelText("Transaction JSON")).toBeTruthy();
+    fireEvent.click(screen.getByRole("radio", { name: "Form" }));
+    expect(screen.getByLabelText(/Destination/)).toBeTruthy();
   });
 });
 

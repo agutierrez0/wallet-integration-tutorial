@@ -6,12 +6,14 @@ import { Header } from "./Header";
 afterEach(() => cleanup());
 
 const noop = () => {};
+const radio = (name: string) => screen.getByRole("radio", { name }) as HTMLInputElement;
 
 describe("Header", () => {
   it("shows the app name and the network switch", () => {
     render(<Header networkId="testnet" onNetwork={noop} />);
     expect(screen.getByRole("heading", { name: "XRPL Wallet Sandbox" })).toBeTruthy();
-    expect(screen.getByRole("button", { name: "Network: Testnet" })).toBeTruthy();
+    expect(screen.getByRole("radiogroup", { name: "Network" })).toBeTruthy();
+    expect(radio("Testnet").checked).toBe(true);
   });
 
   it("shows no banner on testnet or devnet", () => {
@@ -23,11 +25,8 @@ describe("Header", () => {
 
   it("shows the mainnet banner on mainnet", () => {
     render(<Header networkId="mainnet" onNetwork={noop} />);
-    const banner = screen.getByRole("status");
-    expect(banner.textContent).toBe("Mainnet — real XRP");
-    expect(screen.getByRole("button", { name: "Network: Mainnet" }).className).toContain(
-      "net-pill--mainnet",
-    );
+    expect(screen.getByRole("status").textContent).toContain("Mainnet — real XRP");
+    expect(radio("Mainnet").checked).toBe(true);
   });
 
   it("shows the wallet-reported network and where it came from", () => {
@@ -51,8 +50,7 @@ describe("Header", () => {
 
   it("locks the switch while busy", () => {
     render(<Header networkId="testnet" onNetwork={noop} busy />);
-    expect(
-      screen.getByRole("button", { name: "Network: Testnet" }).getAttribute("aria-disabled"),
-    ).toBe("true");
+    expect(radio("Devnet").disabled).toBe(true);
+    expect(radio("Mainnet").disabled).toBe(true);
   });
 });

@@ -34,9 +34,7 @@ describe("locking while busy", () => {
   it("makes the raw JSON read-only and disables the toggle and Sign", () => {
     setup({ value: customTx(NEW), account: NEW, busy: true });
     expect((screen.getByLabelText("Transaction JSON") as HTMLTextAreaElement).readOnly).toBe(true);
-    expect(
-      (screen.getByRole("button", { name: "Back to form" }) as HTMLButtonElement).disabled,
-    ).toBe(true);
+    expect((screen.getByRole("radio", { name: "Form" }) as HTMLInputElement).disabled).toBe(true);
     expect((screen.getByRole("button", { name: "Sign" }) as HTMLButtonElement).disabled).toBe(true);
     expect(screen.getByText(/Locked while a submission is in progress/)).toBeTruthy();
   });

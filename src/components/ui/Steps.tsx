@@ -1,4 +1,4 @@
-import "./ui.css";
+import { Steps as AntSteps } from "antd";
 
 export type StepState = "todo" | "current" | "done" | "error";
 
@@ -20,23 +20,34 @@ const STATE_TEXT: Record<StepState, string> = {
   error: "failed",
 };
 
+const ANT_STATUS = {
+  todo: "wait",
+  current: "process",
+  done: "finish",
+  error: "error",
+} as const;
+
 export function Steps({ steps }: StepsProps) {
+  const current = Math.max(
+    0,
+    steps.findIndex((s) => s.state === "current" || s.state === "error"),
+  );
   return (
-    <ol className="ui-steps" aria-label="Progress">
-      {steps.map((s, i) => (
-        <li
-          key={s.label}
-          className={`ui-step ui-step-${s.state}`}
-          aria-current={s.state === "current" ? "step" : undefined}
-        >
-          <span className="ui-step-marker" aria-hidden="true">
-            {s.state === "done" ? "✓" : s.state === "error" ? "!" : i + 1}
-          </span>
-          <span className="ui-step-label">{s.label}</span>
-          <span className="ui-sr-only">: {STATE_TEXT[s.state]}</span>
-        </li>
-      ))}
-    </ol>
+    <nav aria-label="Progress">
+      <AntSteps
+        size="small"
+        current={current}
+        items={steps.map((s) => ({
+          status: ANT_STATUS[s.state],
+          title: (
+            <span aria-current={s.state === "current" ? "step" : undefined}>
+              {s.label}
+              <span className="ui-sr-only">: {STATE_TEXT[s.state]}</span>
+            </span>
+          ),
+        }))}
+      />
+    </nav>
   );
 }
 

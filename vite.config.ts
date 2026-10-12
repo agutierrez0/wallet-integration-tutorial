@@ -11,6 +11,9 @@ export default defineConfig({
   test: {
     exclude: ["node_modules/**", "server/**", "dist/**"],
     setupFiles: ["./src/test/setup.ts"],
+    // Ant Design renders slowly under jsdom, especially with several workers loading it at once.
+    testTimeout: 20_000,
+    hookTimeout: 20_000,
   },
   server: {
     host: true,

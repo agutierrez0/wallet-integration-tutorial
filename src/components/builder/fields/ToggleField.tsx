@@ -1,4 +1,5 @@
-import { FieldShell, type FieldProps } from "./FieldShell";
+import { Flex, Switch, Typography } from "antd";
+import { type FieldProps, FieldShell } from "./FieldShell";
 
 export function ToggleField({
   def,
@@ -10,23 +11,21 @@ export function ToggleField({
 }: FieldProps<boolean>) {
   const on = value === true;
   return (
-    <FieldShell def={def} error={error} className="txf-field--toggle">
+    <FieldShell def={def} error={error} inlineLabel>
       {({ id, describedBy, invalid }) => (
-        <button
-          id={id}
-          type="button"
-          role="switch"
-          aria-checked={on}
-          aria-invalid={invalid || undefined}
-          aria-describedby={describedBy}
-          className={`txf-switch${on ? " is-on" : ""}`}
-          disabled={disabled}
-          onClick={() => onChange(!on)}
-          onBlur={onBlur}
-        >
-          <span className="txf-switch-knob" aria-hidden="true" />
-          <span className="txf-sr">{on ? "On" : "Off"}</span>
-        </button>
+        <Flex align="center" gap={12} onBlur={onBlur}>
+          <Switch
+            id={id}
+            checked={on}
+            disabled={disabled}
+            aria-invalid={invalid || undefined}
+            aria-describedby={describedBy}
+            onChange={(next) => onChange(next)}
+          />
+          <Typography.Text>
+            <label htmlFor={id}>{def.label}</label>
+          </Typography.Text>
+        </Flex>
       )}
     </FieldShell>
   );

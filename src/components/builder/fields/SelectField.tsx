@@ -1,42 +1,37 @@
-import { FieldShell, type FieldProps } from "./FieldShell";
+import { Select } from "antd";
+import { type FieldProps, FieldShell, Hint } from "./FieldShell";
 
 export function SelectField({ def, value, onChange, onBlur, error, disabled }: FieldProps<string>) {
   const v = typeof value === "string" ? value : "";
-  const options = def.options ?? [];
-  const selected = options.find((o) => o.value === v);
+  const defOptions = def.options ?? [];
+  const selected = defOptions.find((o) => o.value === v);
+  const required = !!def.required;
+  const emptyLabel = def.placeholder ?? "None";
+
+  // Optional selects get an explicit empty choice so keyboard users can clear them.
+  const options = [
+    ...(required ? [] : [{ value: "", label: emptyLabel }]),
+    ...defOptions.map((o) => ({ value: o.value, label: o.label })),
+  ];
 
   return (
     <FieldShell def={def} error={error}>
-      {({ id, describedBy, invalid, required }) => (
+      {({ id, describedBy, invalid }) => (
         <>
-          <select
+          <Select
             id={id}
-            className="txf-input txf-select"
-            value={v}
+            style={{ width: "100%" }}
+            value={v === "" && required ? undefined : v}
+            placeholder="Select…"
+            options={options}
+            virtual={false}
             disabled={disabled}
-            aria-invalid={invalid || undefined}
-            aria-required={required || undefined}
+            status={invalid ? "error" : undefined}
             aria-describedby={describedBy}
-            onChange={(e) => onChange(e.target.value)}
+            onChange={(next) => onChange(String(next ?? ""))}
             onBlur={onBlur}
-          >
-            {v === "" && (
-              <option value="" disabled={required}>
-                {required ? "Select…" : (def.placeholder ?? "None")}
-              </option>
-            )}
-            {!required && v !== "" && <option value="">{def.placeholder ?? "None"}</option>}
-            {options.map((o) => (
-              <option key={o.value} value={o.value}>
-                {o.label}
-              </option>
-            ))}
-          </select>
-          {selected?.help && (
-            <p className="txf-hint" aria-live="polite">
-              {selected.help}
-            </p>
-          )}
+          />
+          {selected?.help && <Hint>{selected.help}</Hint>}
         </>
       )}
     </FieldShell>

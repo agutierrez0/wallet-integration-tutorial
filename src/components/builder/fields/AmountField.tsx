@@ -1,6 +1,6 @@
-import { useRef, type KeyboardEvent } from "react";
+import { Flex, Input, Segmented, Space, theme } from "antd";
 import type { AmountValue } from "../../../lib/txSchemaTypes";
-import { FieldShell, type FieldProps } from "./FieldShell";
+import { type FieldProps, FieldShell } from "./FieldShell";
 import { DropsHint, sanitizeXrp } from "./XrpField";
 
 function normalize(value: unknown): AmountValue {
@@ -16,68 +16,37 @@ export function AmountField({
   error,
   disabled,
 }: FieldProps<AmountValue>) {
+  const { token } = theme.useToken();
   const amt = normalize(value);
   const set = (patch: Partial<AmountValue>) => onChange({ ...amt, ...patch });
-  const modes = ["xrp", "issued"] as const;
-  const segRefs = useRef<Array<HTMLButtonElement | null>>([]);
-
-  // Radio-group keyboard model: arrows move and select, only the checked radio is a tab stop.
-  const onSegKey = (e: KeyboardEvent<HTMLDivElement>) => {
-    const i = modes.indexOf(amt.mode);
-    let next = i;
-    if (e.key === "ArrowRight" || e.key === "ArrowDown") next = (i + 1) % modes.length;
-    else if (e.key === "ArrowLeft" || e.key === "ArrowUp")
-      next = (i - 1 + modes.length) % modes.length;
-    else if (e.key === "Home") next = 0;
-    else if (e.key === "End") next = modes.length - 1;
-    else return;
-    e.preventDefault();
-    set({ mode: modes[next] });
-    segRefs.current[next]?.focus();
-  };
 
   return (
-    <FieldShell def={def} error={error} group>
+    <FieldShell def={def} error={error}>
       {({ id, describedBy, invalid, required }) => (
-        <div className="txf-amount">
-          <div
-            className="txf-seg"
-            role="radiogroup"
+        <Flex vertical gap={token.marginXS} role="group" aria-label={def.label}>
+          {/* antd's Segmented is a native radio group: arrows move and select. */}
+          <Segmented<AmountValue["mode"]>
             aria-label={`${def.label} type`}
-            onKeyDown={onSegKey}
-          >
-            {modes.map((mode, idx) => (
-              // biome-ignore lint/a11y/useSemanticElements: segmented control per the ARIA radio-group pattern (roving tabindex + arrow keys); native radios cannot be styled as these buttons
-              <button
-                key={mode}
-                ref={(el) => {
-                  segRefs.current[idx] = el;
-                }}
-                type="button"
-                role="radio"
-                aria-checked={amt.mode === mode}
-                tabIndex={amt.mode === mode ? 0 : -1}
-                className={`txf-seg-btn${amt.mode === mode ? " is-on" : ""}`}
-                disabled={disabled}
-                onClick={() => set({ mode })}
-              >
-                {mode === "xrp" ? "XRP" : "Issued currency"}
-              </button>
-            ))}
-          </div>
+            value={amt.mode}
+            disabled={disabled}
+            options={[
+              { value: "xrp", label: "XRP" },
+              { value: "issued", label: "Issued currency" },
+            ]}
+            onChange={(mode) => set({ mode })}
+          />
 
           {amt.mode === "xrp" ? (
             <>
-              <div className="txf-input-wrap">
-                <input
+              <Space.Compact block>
+                <Input
                   id={id}
-                  className="txf-input txf-num"
-                  type="text"
                   inputMode="decimal"
                   aria-label={`${def.label} in XRP`}
                   value={amt.value}
                   placeholder="0.0"
                   disabled={disabled}
+                  status={invalid ? "error" : undefined}
                   autoComplete="off"
                   aria-invalid={invalid || undefined}
                   aria-required={required || undefined}
@@ -85,65 +54,63 @@ export function AmountField({
                   onChange={(e) => set({ value: sanitizeXrp(e.target.value) })}
                   onBlur={onBlur}
                 />
-                <span className="txf-suffix" aria-hidden="true">
-                  XRP
-                </span>
-              </div>
+                <Space.Addon>XRP</Space.Addon>
+              </Space.Compact>
               <DropsHint xrp={amt.value} />
             </>
           ) : (
-            <div className="txf-issued">
-              <input
+            <Flex gap={token.marginXS} wrap>
+              <Input
                 id={id}
-                className="txf-input"
-                type="text"
                 aria-label={`${def.label} currency code`}
                 placeholder="Currency (USD)"
                 maxLength={40}
                 value={amt.currency ?? ""}
                 disabled={disabled}
+                status={invalid ? "error" : undefined}
                 spellCheck={false}
                 autoComplete="off"
                 autoCapitalize="characters"
                 aria-invalid={invalid || undefined}
                 aria-required={required || undefined}
                 aria-describedby={describedBy}
+                style={{ flex: "1 1 130px", fontFamily: token.fontFamilyCode }}
                 onChange={(e) => set({ currency: e.target.value.trim() })}
                 onBlur={onBlur}
               />
-              <input
-                className="txf-input txf-mono"
-                type="text"
+              <Input
                 aria-label={`${def.label} issuer address`}
                 placeholder="Issuer (r…)"
                 value={amt.issuer ?? ""}
                 disabled={disabled}
+                status={invalid ? "error" : undefined}
                 spellCheck={false}
                 autoComplete="off"
                 autoCapitalize="none"
                 autoCorrect="off"
                 aria-invalid={invalid || undefined}
                 aria-describedby={describedBy}
+                style={{ flex: "3 1 220px", fontFamily: token.fontFamilyCode }}
                 onChange={(e) => set({ issuer: e.target.value.replace(/\s+/g, "") })}
                 onBlur={onBlur}
               />
-              <input
-                className="txf-input txf-num"
-                type="text"
+              <Input
                 inputMode="decimal"
                 aria-label={`${def.label} value`}
                 placeholder="Value"
                 value={amt.value}
                 disabled={disabled}
+                status={invalid ? "error" : undefined}
                 autoComplete="off"
                 aria-invalid={invalid || undefined}
                 aria-describedby={describedBy}
+                style={{ flex: "1 1 130px" }}
                 onChange={(e) => set({ value: e.target.value.replace(/[^0-9.eE+-]/g, "") })}
                 onBlur={onBlur}
               />
-            </div>
+            </Flex>
           )}
-        </div>
+        </Flex>
       )}
     </FieldShell>
   );

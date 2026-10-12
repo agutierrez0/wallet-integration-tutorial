@@ -135,8 +135,8 @@ afterEach(() => cleanup());
 
 async function pickWallet() {
   render(<App />);
-  const card = await screen.findByRole("button", { name: /^Fake/ });
-  await waitFor(() => expect((card as HTMLButtonElement).disabled).toBe(false));
+  const card = await screen.findByRole("radio", { name: /^Fake/ });
+  await waitFor(() => expect((card as HTMLInputElement).disabled).toBe(false));
   fireEvent.click(card);
 }
 
@@ -183,7 +183,8 @@ describe("cancelling", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "qr-cancel" }));
     await waitFor(() => expect(screen.queryByTestId("qr")).toBeNull());
-    expect(await screen.findByRole("button", { name: "Connect Fake" })).toBeTruthy();
+    // antd keeps a collapsing spinner icon in the name while its exit motion runs, so match loosely
+    expect(await screen.findByRole("button", { name: /Connect Fake/ })).toBeTruthy();
     const signal = h.adapter.connect.mock.calls[0][0].signal as AbortSignal;
     expect(signal.aborted).toBe(true);
   });
@@ -317,20 +318,20 @@ describe("result lookup", () => {
   });
 });
 
-const networkButton = () => screen.getByRole("button", { name: /^Network:/ });
+const networkRadio = (name: string) => screen.getByRole("radio", { name }) as HTMLInputElement;
+const currentNetwork = () => ["Testnet", "Devnet", "Mainnet"].find((n) => networkRadio(n).checked);
 
 async function pickNetwork(name: RegExp) {
-  fireEvent.click(networkButton());
-  fireEvent.click(screen.getByRole("option", { name }));
+  fireEvent.click(screen.getByRole("radio", { name }));
 }
 
 describe("global network switch", () => {
   it("defaults to testnet and switches immediately, with no checkbox or confirmation", async () => {
     render(<App />);
-    expect(networkButton().getAttribute("aria-label")).toBe("Network: Testnet");
+    expect(currentNetwork()).toBe("Testnet");
     expect(screen.queryByRole("checkbox", { name: /understand/i })).toBeNull();
     await pickNetwork(/Mainnet/);
-    expect(networkButton().getAttribute("aria-label")).toBe("Network: Mainnet");
+    expect(currentNetwork()).toBe("Mainnet");
     expect(screen.getByText("Mainnet — real XRP")).toBeTruthy();
   });
 
@@ -341,13 +342,13 @@ describe("global network switch", () => {
     expect(document.documentElement.dataset.network).toBe("devnet");
     cleanup();
     render(<App />); // a reload
-    expect(networkButton().getAttribute("aria-label")).toBe("Network: Devnet");
+    expect(currentNetwork()).toBe("Devnet");
   });
 
   it("falls back to testnet when the stored value is invalid", () => {
     localStorage.setItem(NETWORK_KEY, "constructor");
     render(<App />);
-    expect(networkButton().getAttribute("aria-label")).toBe("Network: Testnet");
+    expect(currentNetwork()).toBe("Testnet");
   });
 
   it("passes the selected network to the wallet", async () => {
@@ -369,12 +370,12 @@ describe("global network switch", () => {
     h.adapter.connect.mockReturnValue(pending.promise);
     await pickWallet();
     fireEvent.click(await screen.findByRole("button", { name: "Connect Fake" }));
-    await waitFor(() => expect(networkButton().getAttribute("aria-disabled")).toBe("true"));
-    fireEvent.click(networkButton());
-    expect(screen.queryByRole("listbox")).toBeNull();
+    await waitFor(() => expect(networkRadio("Devnet").disabled).toBe(true));
+    fireEvent.click(networkRadio("Devnet"));
+    expect(document.documentElement.dataset.network).toBe("testnet");
     pending.resolve({ address: wallet.address });
     await screen.findByText(wallet.address);
-    expect(networkButton().getAttribute("aria-disabled")).toBeNull();
+    expect(networkRadio("Devnet").disabled).toBe(false);
   });
 });
 
@@ -394,11 +395,9 @@ describe("restoring history across networks", () => {
   it("switches to the entry's network, mainnet included, with no blocking alert", async () => {
     localStorage.setItem(HISTORY_KEY, JSON.stringify([entry]));
     render(<App />);
-    expect(networkButton().getAttribute("aria-label")).toBe("Network: Testnet");
+    expect(currentNetwork()).toBe("Testnet");
     fireEvent.click(await screen.findByRole("button", { name: /^Load AccountSet/ }));
-    await waitFor(() =>
-      expect(networkButton().getAttribute("aria-label")).toBe("Network: Mainnet"),
-    );
+    await waitFor(() => expect(currentNetwork()).toBe("Mainnet"));
     expect(screen.getByText("Mainnet — real XRP")).toBeTruthy();
     expect(screen.getByText(/Switched to Mainnet/)).toBeTruthy();
     expect(screen.queryByText(/The network was not switched/)).toBeNull();

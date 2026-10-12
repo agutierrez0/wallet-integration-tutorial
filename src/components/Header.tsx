@@ -1,5 +1,6 @@
-import { NetworkSwitch } from "./NetworkSwitch";
+import { Alert, Layout, Typography, theme } from "antd";
 import type { NetworkId } from "../lib/networks";
+import { NetworkSwitch } from "./NetworkSwitch";
 
 interface Props {
   networkId: NetworkId;
@@ -13,7 +14,7 @@ interface Props {
   mismatch?: string | null;
 }
 
-// Sticky chrome: app name, the global network switch, then the mainnet banner and the
+// Sticky chrome: app name and the global network switch, then the mainnet banner and the
 // wallet/network mismatch strip, so both stay visible while scrolling.
 export function Header({
   networkId,
@@ -23,36 +24,48 @@ export function Header({
   hintNote,
   mismatch,
 }: Props) {
+  const { token } = theme.useToken();
   return (
     <div className="chrome">
-      <header className="topbar">
-        <div className="topbar-inner">
-          <h1 className="brand">XRPL Wallet Sandbox</h1>
-          <div className="topbar-right">
-            {networkHint && (
-              <span className="wallet-net">
-                Wallet: {networkHint}
-                {hintNote ? ` (${hintNote})` : ""}
-              </span>
-            )}
-            <NetworkSwitch
-              value={networkId}
-              onChange={onNetwork}
-              disabled={busy}
-              disabledReason="Finish or cancel the current action to switch networks."
-            />
-          </div>
+      <Layout.Header
+        className="topbar"
+        style={{ borderBottom: `1px solid ${token.colorBorderSecondary}` }}
+      >
+        <Typography.Title level={1} className="brand">
+          <span className="brand-full">XRPL Wallet Sandbox</span>
+          <span className="brand-short" aria-hidden="true">
+            XRPL
+          </span>
+        </Typography.Title>
+        <div className="topbar-right">
+          {networkHint && (
+            <Typography.Text type="secondary" className="wallet-net">
+              Wallet: {networkHint}
+              {hintNote ? ` (${hintNote})` : ""}
+            </Typography.Text>
+          )}
+          <NetworkSwitch
+            value={networkId}
+            onChange={onNetwork}
+            disabled={busy}
+            disabledReason="Finish or cancel the current action to switch networks."
+          />
         </div>
-      </header>
+      </Layout.Header>
       {networkId === "mainnet" && (
-        <div className="net-banner" role="status">
-          Mainnet — real XRP
-        </div>
+        <Alert banner type="error" role="status" title="Mainnet — real XRP" />
       )}
       {mismatch && (
-        <div className="net-mismatch" role="alert">
-          <strong>Network mismatch:</strong> {mismatch}
-        </div>
+        <Alert
+          banner
+          type="warning"
+          role="alert"
+          title={
+            <>
+              <strong>Network mismatch:</strong> {mismatch}
+            </>
+          }
+        />
       )}
     </div>
   );

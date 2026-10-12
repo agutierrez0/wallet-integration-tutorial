@@ -1,3 +1,8 @@
+// @vitest-environment jsdom
+import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { afterEach, vi } from "vitest";
+import { CATEGORIES, SCHEMAS } from "../../lib/txSchemas";
+import { TypeSelector } from "./TypeSelector";
 import { describe, expect, it } from "vitest";
 import type { TxSchema } from "../../lib/txSchemaTypes";
 import { filterSchemas } from "./TypeSelector";
@@ -56,5 +61,64 @@ describe("filterSchemas", () => {
 
   it("combines query with category", () => {
     expect(filterSchemas(schemas, "issued", "payments").map((s) => s.type)).toEqual(["Payment"]);
+  });
+});
+
+afterEach(() => cleanup());
+
+describe("TypeSelector", () => {
+  const setup = (value?: string, onSelect = vi.fn()) => {
+    render(
+      <TypeSelector schemas={SCHEMAS} categories={CATEGORIES} value={value} onSelect={onSelect} />,
+    );
+    return onSelect;
+  };
+
+  it("is a labelled combobox", () => {
+    setup();
+    expect(screen.getByRole("combobox", { name: "Transaction type" })).toBeTruthy();
+  });
+
+  it("lists every registered transaction type when opened", () => {
+    setup();
+    fireEvent.mouseDown(screen.getByRole("combobox"));
+    expect(screen.getAllByRole("option")).toHaveLength(SCHEMAS.length);
+  });
+
+  it("reports the chosen TransactionType", () => {
+    const onSelect = setup();
+    fireEvent.mouseDown(screen.getByRole("combobox"));
+    const payment = screen.getAllByRole("option").find((o) => /Payment/.test(o.textContent ?? ""));
+    expect(payment).toBeTruthy();
+    fireEvent.click(payment as HTMLElement);
+    expect(onSelect).toHaveBeenCalledWith("Payment");
+  });
+
+  it("narrows the list as you type", () => {
+    setup();
+    const box = screen.getByRole("combobox");
+    fireEvent.mouseDown(box);
+    fireEvent.change(box, { target: { value: "escrow" } });
+    const options = screen.getAllByRole("option");
+    expect(options.length).toBeGreaterThan(0);
+    expect(options.length).toBeLessThan(SCHEMAS.length);
+    for (const o of options) expect(o.textContent?.toLowerCase()).toContain("escrow");
+  });
+
+  it("shows the chosen type and its description", () => {
+    setup("Payment");
+    expect(screen.getAllByText("Payment").length).toBeGreaterThan(0);
+  });
+
+  it("jumps to the search field with '/' unless a modal is open", () => {
+    setup();
+    const box = screen.getByRole("combobox");
+    fireEvent.keyDown(document.body, { key: "/" });
+    expect(document.activeElement).toBe(box);
+    (box as HTMLElement).blur();
+    document.documentElement.dataset.modalOpen = "true";
+    fireEvent.keyDown(document.body, { key: "/" });
+    expect(document.activeElement).not.toBe(box);
+    delete document.documentElement.dataset.modalOpen;
   });
 });

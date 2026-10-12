@@ -1,3 +1,4 @@
+import { Alert, Button, Card, Flex, Input, Segmented, Typography, theme } from "antd";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   DROPPED_KEYS,
@@ -8,7 +9,7 @@ import {
 } from "../lib/txSchemas";
 import type { FormValues } from "../lib/txSchemaTypes";
 import { TxBuilder, buildText } from "./builder/TxBuilder";
-import { ActionButton, Alert } from "./ui";
+import { VisuallyHidden } from "./builder/VisuallyHidden";
 
 interface Props {
   // Tx JSON text: the source of truth for signing. Empty until a type is chosen.
@@ -118,7 +119,8 @@ export function TxEditor({
   onSign,
   onCancel,
 }: Props) {
-  const rootRef = useRef<HTMLElement>(null);
+  const { token } = theme.useToken();
+  const rootRef = useRef<HTMLDivElement>(null);
   const handledNonce = useRef(loadRequest?.nonce ?? 0);
   const [initial] = useState(() => formFromText(value));
   const [type, setType] = useState<string | undefined>(initial?.type);
@@ -253,7 +255,11 @@ export function TxEditor({
     if (softBlocked) {
       setShowAll(true);
       requestAnimationFrame(() => {
-        rootRef.current?.querySelector<HTMLElement>('[aria-invalid="true"]')?.focus();
+        const field = rootRef.current?.querySelector<HTMLElement>('[data-field-invalid="true"]');
+        const target =
+          field?.querySelector<HTMLElement>('[aria-invalid="true"]') ??
+          field?.querySelector<HTMLElement>("input:not([type=hidden]), textarea, button");
+        target?.focus();
       });
       return;
     }
@@ -305,87 +311,114 @@ export function TxEditor({
   };
 
   return (
-    <section className="card" ref={rootRef} tabIndex={-1} aria-label="Transaction">
-      <div className="card-head">
-        <h2>Build and sign</h2>
-        <button
-          type="button"
-          className="small"
+    <Card
+      ref={rootRef}
+      tabIndex={-1}
+      role="region"
+      aria-label="Transaction"
+      title="Build and sign"
+      extra={
+        <Segmented
+          aria-label="Editor mode"
+          value={raw ? "raw" : "form"}
           disabled={locked}
-          aria-pressed={raw}
-          onClick={() => (raw ? leaveRaw() : (setRaw(true), setRawNotice(null)))}
-        >
-          {raw ? "Back to form" : "Edit raw JSON"}
-        </button>
-      </div>
-
-      {raw ? (
-        <textarea
-          aria-label="Transaction JSON"
-          aria-invalid={rawError ? true : undefined}
-          aria-describedby="tx-hint"
-          spellCheck={false}
-          rows={12}
-          value={value}
-          readOnly={locked}
-          onChange={(e) => onChange(e.target.value)}
+          options={[
+            { value: "form", label: "Form" },
+            { value: "raw", label: "Raw JSON" },
+          ]}
+          onChange={(next) => {
+            if (next === "raw" && !raw) {
+              setRaw(true);
+              setRawNotice(null);
+            } else if (next === "form" && raw) leaveRaw();
+          }}
         />
-      ) : (
-        <TxBuilder
-          schema={schema}
-          values={values}
-          errors={errors}
-          account={account}
-          signing={locked}
-          showAllErrors={showAll}
-          resetKey={resetKey}
-          preview={preview}
-          onSelectType={selectType}
-          onChange={changeValues}
-        />
-      )}
-
-      {staleAccount && (
-        <div className="row wrap">
-          <span className="bad inline-msg">
-            This JSON is for <code>{staleAccount}</code>, but <code>{account}</code> is connected.
-          </span>
-          <ActionButton variant="secondary" disabled={locked} onClick={useConnectedAccount}>
-            Use connected account
-          </ActionButton>
-        </div>
-      )}
-      {!raw && note.loud && <Alert variant="warning" message={note.loud} />}
-      {!raw && note.quiet && <p className="muted">{note.quiet}</p>}
-      <div className="ui-sr-only" role="status" aria-live="polite">
-        {ANNOUNCE[sigState]}
-      </div>
-      <p id="tx-hint" className={hint.tone === "bad" ? "bad inline-msg" : "muted"}>
-        {hint.text}
-      </p>
-      {busy && !signing && <p className="muted">Locked while a submission is in progress.</p>}
-      <div className="row wrap">
-        <ActionButton
-          loading={signing}
-          loadingLabel={signingLabel}
-          disabled={hardBlocked}
-          aria-disabled={softBlocked || undefined}
-          className={softBlocked ? "is-soft-disabled" : undefined}
-          onClick={handleSign}
-        >
-          {signLabel}
-        </ActionButton>
-        {signing && (
-          <ActionButton variant="ghost" onClick={onCancel}>
-            Cancel
-          </ActionButton>
+      }
+    >
+      <Flex vertical gap={token.marginMD}>
+        {raw ? (
+          <Input.TextArea
+            aria-label="Transaction JSON"
+            aria-invalid={rawError ? true : undefined}
+            aria-describedby="tx-hint"
+            status={rawError ? "error" : undefined}
+            spellCheck={false}
+            autoSize={{ minRows: 12, maxRows: 28 }}
+            value={value}
+            readOnly={locked}
+            style={{ fontFamily: token.fontFamilyCode }}
+            onChange={(e) => onChange(e.target.value)}
+          />
+        ) : (
+          <TxBuilder
+            schema={schema}
+            values={values}
+            errors={errors}
+            account={account}
+            signing={locked}
+            showAllErrors={showAll}
+            resetKey={resetKey}
+            preview={preview}
+            onSelectType={selectType}
+            onChange={changeValues}
+          />
         )}
-      </div>
-      {signing && (
-        <p className="muted">
-          Cancel stops waiting and ignores the result. Close any wallet popup that is still open.
-        </p>
-      )}
-    </section>
+
+        {staleAccount && (
+          <Alert
+            type="warning"
+            showIcon
+            title={
+              <>
+                This JSON is for <Typography.Text code>{staleAccount}</Typography.Text>, but{" "}
+                <Typography.Text code>{account}</Typography.Text> is connected.
+              </>
+            }
+            action={
+              <Button size="small" disabled={locked} onClick={useConnectedAccount}>
+                Use connected account
+              </Button>
+            }
+          />
+        )}
+        {!raw && note.loud && <Alert type="warning" showIcon title={note.loud} />}
+        {!raw && note.quiet && <Typography.Text type="secondary">{note.quiet}</Typography.Text>}
+
+        <VisuallyHidden role="status" aria-live="polite">
+          {ANNOUNCE[sigState]}
+        </VisuallyHidden>
+        <Typography.Text id="tx-hint" type={hint.tone === "bad" ? "danger" : "secondary"}>
+          {hint.text}
+        </Typography.Text>
+        {busy && !signing && (
+          <Typography.Text type="secondary">
+            Locked while a submission is in progress.
+          </Typography.Text>
+        )}
+
+        <Flex gap={token.marginXS} wrap>
+          <Button
+            type="primary"
+            loading={signing}
+            disabled={hardBlocked}
+            aria-disabled={softBlocked || undefined}
+            style={softBlocked ? { opacity: 0.6 } : undefined}
+            onClick={handleSign}
+          >
+            {signing ? signingLabel : signLabel}
+          </Button>
+          {signing && (
+            <Button type="text" onClick={onCancel}>
+              Cancel
+            </Button>
+          )}
+        </Flex>
+        {signing && (
+          <Typography.Text type="secondary">
+            Cancel stops waiting and ignores the result. Close any wallet popup that is still open.
+          </Typography.Text>
+        )}
+      </Flex>
+    </Card>
   );
 }
