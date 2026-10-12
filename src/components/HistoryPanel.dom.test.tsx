@@ -66,6 +66,16 @@ describe("HistoryPanel", () => {
     expect(onRestore).toHaveBeenCalledWith(e);
   });
 
+  it("shows which wallet signed each entry and the signing account", () => {
+    setup([
+      entry({ walletId: "crossmark", hash: HASH(1) }),
+      entry({ walletId: "xaman", hash: HASH(2) }),
+    ]);
+    expect(screen.getByText("Crossmark")).toBeTruthy();
+    expect(screen.getByText("Xaman")).toBeTruthy();
+    expect(screen.getAllByText("rPT1S…pAYe")).toHaveLength(2);
+  });
+
   it("offers an explorer link only for transactions that reached the ledger", () => {
     setup([
       entry({ hash: HASH(1), status: "signed" }),

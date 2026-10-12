@@ -334,12 +334,24 @@ export function formatRelativeTime(ms: number, now: number = Date.now()): string
   return new Date(ms).toISOString().slice(0, 10);
 }
 
+const WALLET_LABELS: Record<string, string> = {
+  crossmark: "Crossmark",
+  gemwallet: "GemWallet",
+  xaman: "Xaman",
+  ledger: "Ledger",
+};
+
+// Readable name for the wallet id stored with a history entry; unknown ids are shown as stored.
+export function walletLabel(walletId: string): string {
+  return WALLET_LABELS[walletId] ?? (walletId || "Unknown wallet");
+}
+
 export function shortHash(hash: string): string {
   if (hash.length <= 16) return hash;
   return `${hash.slice(0, 8)}…${hash.slice(-6)}`;
 }
 
-function shortAddress(address: string): string {
+export function shortAddress(address: string): string {
   return address.length <= 12 ? address : `${address.slice(0, 5)}…${address.slice(-4)}`;
 }
 

@@ -1,9 +1,17 @@
-import { DeleteOutlined, DownOutlined, RightOutlined } from "@ant-design/icons";
+import { DeleteOutlined, DownOutlined, RightOutlined, WalletOutlined } from "@ant-design/icons";
 import { Button, Card, Empty, Flex, Popconfirm, Tag, Tooltip, Typography, theme } from "antd";
 import { useEffect, useId, useState } from "react";
 import { useAction } from "../hooks/useAction";
 import { toUserError } from "../lib/errors";
-import { explorerUrl, formatRelativeTime, lookupTx, shortHash, summarizeTx } from "../lib/history";
+import {
+  explorerUrl,
+  formatRelativeTime,
+  lookupTx,
+  shortAddress,
+  shortHash,
+  summarizeTx,
+  walletLabel,
+} from "../lib/history";
 import { canCheckOnChain } from "../lib/historyEntries";
 import type { HistoryEntry } from "../lib/historyTypes";
 import { NETWORKS } from "../lib/networks";
@@ -140,6 +148,13 @@ function Row({
             <Tag color={NET_COLOR[entry.network]} style={{ marginInlineEnd: 0 }}>
               {entry.network}
             </Tag>
+            <Tag
+              icon={<WalletOutlined />}
+              style={{ marginInlineEnd: 0 }}
+              title="Wallet used to sign"
+            >
+              {walletLabel(entry.walletId)}
+            </Tag>
             <StatusPill tone={status.tone}>{status.label}</StatusPill>
           </Flex>
           {summary && <Typography.Text type="secondary">{summary}</Typography.Text>}
@@ -154,6 +169,13 @@ function Row({
               title={entry.hash}
             >
               {shortHash(entry.hash)}
+            </Typography.Text>
+            <Typography.Text
+              type="secondary"
+              copyable={{ text: entry.account, tooltips: false }}
+              title={`Signed by ${entry.account}`}
+            >
+              {shortAddress(entry.account)}
             </Typography.Text>
             <Tooltip title={full}>
               <time dateTime={new Date(entry.createdAt).toISOString()}>

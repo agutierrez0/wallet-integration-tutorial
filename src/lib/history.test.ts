@@ -12,6 +12,7 @@ import {
   shortHash,
   summarizeTx,
   updateEntry,
+  walletLabel,
   type StorageEventTarget,
   type StorageLike,
 } from "./history";
@@ -601,5 +602,16 @@ describe("re-keyed rows", () => {
     addEntry(entry(1, { hash: OLD }), storage);
     updateEntry("id-1", { hash: NEW, previousHashes: ["C".repeat(64)] }, storage);
     expect(loadHistory(storage)[0].previousHashes).toEqual([OLD]);
+  });
+});
+
+describe("walletLabel", () => {
+  it("names the known wallets and falls back to the stored id", () => {
+    expect(walletLabel("crossmark")).toBe("Crossmark");
+    expect(walletLabel("gemwallet")).toBe("GemWallet");
+    expect(walletLabel("xaman")).toBe("Xaman");
+    expect(walletLabel("ledger")).toBe("Ledger");
+    expect(walletLabel("some-future-wallet")).toBe("some-future-wallet");
+    expect(walletLabel("")).toBe("Unknown wallet");
   });
 });
