@@ -1,8 +1,7 @@
-import { useEffect, useRef, useState } from "react";
-import type { MouseEvent } from "react";
+import { Button, Flex, Image, Modal, Typography } from "antd";
+import { useEffect, useState } from "react";
 import type { WalletPrompt } from "../wallets/types";
-import { ActionButton, Spinner } from "./ui";
-import "./qrprompt.css";
+import { Alert, Spinner } from "./ui";
 
 interface Props {
   prompt: WalletPrompt;
@@ -43,13 +42,16 @@ export function isModalOpen(): boolean {
   return openModals > 0;
 }
 
-// Modal shown while an out-of-band approval (QR code) is pending. It is a native <dialog>
-// opened with showModal(), so the rest of the page is inert and Tab stays inside it.
+// Modal shown while an out-of-band approval (QR code) is pending. It is an antd Modal, so the
+// page behind it is inert for keyboard users, Tab stays inside, and Escape cancels.
 export function QrPrompt({ prompt, walletName, onCancel }: Props) {
-  const dialogRef = useRef<HTMLDialogElement>(null);
   const [left, setLeft] = useState(() => remainingSeconds(prompt.expiresAt));
   const [imgFailed, setImgFailed] = useState(false);
   const expired = left !== null && left <= 0;
+  // Remember who had focus when the prompt opened, and give it back on close.
+  const [opener] = useState(() =>
+    typeof document === "undefined" ? null : (document.activeElement as HTMLElement | null),
+  );
 
   useEffect(() => {
     setLeft(remainingSeconds(prompt.expiresAt));
@@ -57,104 +59,84 @@ export function QrPrompt({ prompt, walletName, onCancel }: Props) {
     return () => clearInterval(t);
   }, [prompt.expiresAt]);
 
-  // Open as a modal, remember who had focus, and give it back on close.
   useEffect(() => {
-    const dialog = dialogRef.current;
-    if (!dialog) return;
-    const opener = document.activeElement as HTMLElement | null;
-    if (!dialog.open) {
-      try {
-        dialog.showModal();
-      } catch {
-        dialog.setAttribute("open", "");
-      }
-    }
     modalOpened();
-    if (!dialog.contains(document.activeElement)) {
-      dialog.querySelector<HTMLElement>("a[href], button:not([disabled])")?.focus();
-    }
     return () => {
       modalClosed();
-      if (dialog.open) dialog.close();
       opener?.focus?.();
     };
-  }, []);
-
-  // Escape fires "cancel" on the dialog. Let the parent decide so state stays in sync.
-  const onDialogCancel = (e: React.SyntheticEvent<HTMLDialogElement>) => {
-    e.preventDefault();
-    onCancel();
-  };
-
-  // A click on the backdrop lands on the <dialog> itself. Stop it from moving focus to <body>.
-  const onMouseDown = (e: MouseEvent<HTMLDialogElement>) => {
-    if (e.target === e.currentTarget) e.preventDefault();
-  };
+  }, [opener]);
 
   return (
-    <dialog
-      ref={dialogRef}
-      className="qr-modal"
-      aria-labelledby="qr-title"
-      onCancel={onDialogCancel}
-      onMouseDown={onMouseDown}
+    <Modal
+      open
+      centered
+      width={360}
+      title={prompt.title}
+      closable={false}
+      mask={{ closable: false }}
+      keyboard
+      onCancel={onCancel}
+      footer={
+        <Flex justify="flex-end" gap="small" wrap>
+          {prompt.deeplink && !expired && (
+            <Button type="primary" href={prompt.deeplink}>
+              Open in {walletName}
+            </Button>
+          )}
+          <Button type={expired ? "primary" : "default"} onClick={onCancel}>
+            {expired ? "Close" : "Cancel"}
+          </Button>
+        </Flex>
+      }
     >
-      <div className="qr-dialog">
-        <h2 id="qr-title">{prompt.title}</h2>
-        <p className="muted" role="status" aria-live="polite">
+      <Flex vertical align="center" gap="middle">
+        <Typography.Text type="secondary" role="status" aria-live="polite">
           {expired
-            ? `This request expired. Close this and try again.`
+            ? "This request expired. Close this and try again."
             : `Waiting for approval in ${walletName}…`}
-        </p>
+        </Typography.Text>
 
-        {prompt.qrPng && !imgFailed && !expired ? (
-          <img
-            className="qr-image"
+        {expired ? (
+          <Alert
+            variant="warning"
+            title="Expired"
+            message={`${walletName} can no longer approve this request. Close this window, then start again.`}
+          />
+        ) : prompt.qrPng && !imgFailed ? (
+          <Image
             src={prompt.qrPng}
             alt={`QR code. Scan it with the ${walletName} app to approve this request.`}
             width={240}
             height={240}
+            preview={false}
             onError={() => setImgFailed(true)}
           />
-        ) : expired ? null : (
-          <p className="muted">
-            The QR code couldn't be loaded. Use the button below on your phone instead.
-          </p>
-        )}
-
-        {expired ? (
-          <p className="qr-expired">
-            Expired. {walletName} can no longer approve this request. Close this window, then start
-            again.
-          </p>
         ) : (
-          <div className="qr-meta">
-            <Spinner />
-            <span aria-hidden="true">
-              {left === null ? "Waiting…" : `Expires in ${formatCountdown(left)}`}
-            </span>
-            <span className="ui-sr-only">
-              {left !== null
-                ? `This request expires in about ${Math.ceil(left / 60)} minute(s).`
-                : ""}
-            </span>
-          </div>
+          <Typography.Text type="secondary">
+            The QR code couldn't be loaded. Use the button below on your phone instead.
+          </Typography.Text>
         )}
 
-        <div className="row wrap qr-actions">
-          {prompt.deeplink && !expired && (
-            <a className="ui-btn ui-btn-primary" href={prompt.deeplink}>
-              Open in {walletName}
-            </a>
-          )}
-          <ActionButton variant={expired ? "primary" : "secondary"} onClick={onCancel}>
-            {expired ? "Close" : "Cancel"}
-          </ActionButton>
-        </div>
         {!expired && (
-          <p className="muted">Cancel withdraws the request so it disappears from your phone.</p>
+          <>
+            <Flex align="center" gap="small">
+              <Spinner />
+              <Typography.Text type="secondary" aria-hidden="true">
+                {left === null ? "Waiting…" : `Expires in ${formatCountdown(left)}`}
+              </Typography.Text>
+              <span className="ui-sr-only">
+                {left !== null
+                  ? `This request expires in about ${Math.ceil(left / 60)} minute(s).`
+                  : ""}
+              </span>
+            </Flex>
+            <Typography.Text type="secondary" style={{ textAlign: "center" }}>
+              Cancel withdraws the request so it disappears from your phone.
+            </Typography.Text>
+          </>
         )}
-      </div>
-    </dialog>
+      </Flex>
+    </Modal>
   );
 }

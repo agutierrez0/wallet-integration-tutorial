@@ -1,7 +1,8 @@
+import { Alert, Button, Card, Flex, Radio, Skeleton, Space, Tag, Typography } from "antd";
 import type { UseAction } from "../hooks/useAction";
 import { isCancelled, toUserError } from "../lib/errors";
 import type { WalletAdapter, WalletSession } from "../wallets/types";
-import { ActionButton, Alert, Skeleton, StatusPill } from "./ui";
+import { UserErrorAlert } from "./shell/UserErrorAlert";
 
 const INSTALL_URLS: Record<string, string> = {
   crossmark: "https://crossmark.io",
@@ -33,7 +34,7 @@ interface Props {
 function fundMessage(data: unknown): string {
   const d = (data ?? {}) as { amount?: unknown; balance?: unknown };
   const num = (v: unknown) =>
-    typeof v === "number" || (typeof v === "string" && v.trim() !== "" && !isNaN(Number(v)))
+    typeof v === "number" || (typeof v === "string" && v.trim() !== "" && !Number.isNaN(Number(v)))
       ? Number(v)
       : null;
   const amount = num(d.amount);
@@ -69,160 +70,165 @@ export function WalletPicker({
   const anyMissing = available !== null && adapters.some((a) => !available[a.id]);
   const approving = connecting && !!selected?.setPromptHandler;
 
-  const pill = session ? (
-    <StatusPill tone="success">Connected</StatusPill>
+  const status = session ? (
+    <Tag color="success">Connected</Tag>
   ) : connecting ? (
-    <StatusPill tone="pending">Connecting…</StatusPill>
+    <Tag color="processing">Connecting…</Tag>
   ) : connect.status === "error" && !isCancelled(connect.error) ? (
-    <StatusPill tone="error">Connection failed</StatusPill>
+    <Tag color="error">Connection failed</Tag>
   ) : (
-    <StatusPill>Not connected</StatusPill>
+    <Tag>Not connected</Tag>
   );
 
   return (
-    <section className="card">
-      <div className="card-head">
-        <h2>Connect a wallet</h2>
-        {pill}
-      </div>
-
-      {available === null ? (
-        <div className="wallets" role="status" aria-live="polite" aria-busy="true">
-          <span className="ui-sr-only">Checking for extension…</span>
-          {adapters.map((a) => (
-            <div key={a.id} className="wallet-card">
-              <Skeleton height={56} />
-            </div>
-          ))}
-          <p className="muted wide">Checking for extension…</p>
-        </div>
-      ) : (
-        <div className="wallets">
-          {adapters.map((a) => {
-            const ok = available[a.id];
-            return (
-              <div key={a.id} className="wallet-card">
-                <button
-                  type="button"
-                  className={`wallet ${a.id === selectedId ? "selected" : ""}`}
-                  disabled={!ok || locked || connecting}
-                  aria-pressed={a.id === selectedId}
-                  onClick={() => onSelect(a.id)}
-                >
-                  <strong>{a.name}</strong>
-                  <span className="badges">
-                    {a.capabilities.signOnly && <em>sign-only</em>}
-                    {a.capabilities.submit && <em>submit</em>}
-                    {!ok && <em className="off">{a.unavailableReason ?? "not installed"}</em>}
-                  </span>
-                </button>
-                {!ok && a.unavailableReason && (
-                  <p className="muted wallet-hint">
-                    {a.name} needs the signing backend. Run <code>docker compose up</code> or{" "}
-                    <code>npm run dev</code> in <code>server/</code>, then{" "}
-                    <button type="button" className="linklike" onClick={onRecheck}>
-                      check again
-                    </button>
-                    .
-                  </p>
-                )}
-                {!ok && INSTALL_URLS[a.id] && (
-                  <a
-                    className="install-link"
-                    href={INSTALL_URLS[a.id]}
-                    target="_blank"
-                    rel="noreferrer"
-                  >
-                    {a.unavailableReason ? `Get the ${a.name} app` : `Install ${a.name}`}
-                  </a>
-                )}
-              </div>
-            );
-          })}
-        </div>
-      )}
-
-      {anyMissing && (
-        <p className="muted">
-          Just installed one?{" "}
-          <button type="button" className="linklike" onClick={onRecheck}>
-            Check again
-          </button>
-        </p>
-      )}
-
-      <div className="row wrap">
-        {session ? (
-          <>
-            <code className="addr">{session.address}</code>
-            <ActionButton
-              variant="secondary"
-              loading={disconnecting}
-              loadingLabel="Disconnecting…"
-              disabled={locked}
-              onClick={onDisconnect}
-            >
-              Disconnect
-            </ActionButton>
-            {canFund && (
-              <ActionButton
-                variant="secondary"
-                loading={funding}
-                loadingLabel="Requesting funds…"
-                disabled={locked}
-                onClick={onFund}
-              >
-                Fund from faucet
-              </ActionButton>
-            )}
-          </>
+    <Card
+      title={
+        <Typography.Title level={2} className="card-title">
+          Connect a wallet
+        </Typography.Title>
+      }
+      extra={status}
+    >
+      <Flex orientation="vertical" gap={16}>
+        {available === null ? (
+          <div role="status" aria-live="polite" aria-busy="true">
+            <Skeleton active title={false} paragraph={{ rows: adapters.length }} />
+            <Typography.Text type="secondary">Checking for extension…</Typography.Text>
+          </div>
         ) : (
-          <>
-            <ActionButton
-              loading={connecting}
-              loadingLabel={`Waiting for approval in ${selected?.name ?? "wallet"}…`}
-              disabled={!selected || locked}
-              onClick={onConnect}
-            >
-              {selected ? `Connect ${selected.name}` : "Pick a wallet to connect"}
-            </ActionButton>
-            {connecting && (
-              <ActionButton variant="ghost" onClick={onCancelConnect}>
-                Cancel
-              </ActionButton>
-            )}
-          </>
+          <Radio.Group
+            value={selectedId || undefined}
+            onChange={(e) => onSelect(e.target.value as string)}
+            disabled={locked || connecting}
+            aria-label="Wallet"
+          >
+            <Flex orientation="vertical" gap={12}>
+              {adapters.map((a) => {
+                const ok = available[a.id];
+                return (
+                  <div key={a.id}>
+                    <Radio value={a.id} disabled={!ok || locked || connecting}>
+                      <Space size={8} wrap>
+                        <Typography.Text strong>{a.name}</Typography.Text>
+                        {a.capabilities.signOnly && <Tag>sign-only</Tag>}
+                        {a.capabilities.submit && <Tag>submit</Tag>}
+                        {!ok && <Tag color="warning">{a.unavailableReason ?? "not installed"}</Tag>}
+                      </Space>
+                    </Radio>
+                    {!ok && a.unavailableReason && (
+                      <div className="wallet-hint">
+                        <Typography.Text type="secondary">
+                          {a.name} needs the signing backend. Run <code>docker compose up</code> or{" "}
+                          <code>npm run dev</code> in <code>server/</code>, then{" "}
+                        </Typography.Text>
+                        <Button
+                          type="link"
+                          size="small"
+                          className="inline-link"
+                          onClick={onRecheck}
+                        >
+                          check again
+                        </Button>
+                        .
+                      </div>
+                    )}
+                    {!ok && INSTALL_URLS[a.id] && (
+                      <div className="wallet-hint">
+                        <Typography.Link href={INSTALL_URLS[a.id]} target="_blank" rel="noreferrer">
+                          {a.unavailableReason ? `Get the ${a.name} app` : `Install ${a.name}`}
+                        </Typography.Link>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </Flex>
+          </Radio.Group>
         )}
-      </div>
 
-      {connecting && (
-        <p className="muted" role="status">
-          {approving
-            ? `Scan the QR code with ${selected?.name} to approve.`
-            : `Approve the request in the ${selected?.name} popup.`}{" "}
-          Cancel stops waiting and ignores the result.
-        </p>
-      )}
+        {anyMissing && (
+          <Typography.Text type="secondary">
+            Just installed one?{" "}
+            <Button type="link" size="small" className="inline-link" onClick={onRecheck}>
+              Check again
+            </Button>
+          </Typography.Text>
+        )}
 
-      {connect.status === "error" && isCancelled(connect.error) && (
-        <p className="muted" role="status">
-          Cancelled. Nothing was connected.
-        </p>
-      )}
-      {connect.status === "error" && !isCancelled(connect.error) && (
-        <Alert error={toUserError(connect.error)} onRetry={onConnect} onDismiss={connect.reset} />
-      )}
-      {fund.status === "success" && (
-        <Alert
-          variant="success"
-          title="Account funded"
-          message={fundMessage(fund.data)}
-          onDismiss={fund.reset}
-        />
-      )}
-      {fund.status === "error" && (
-        <Alert error={toUserError(fund.error)} onRetry={onFund} onDismiss={fund.reset} />
-      )}
-    </section>
+        <Space wrap>
+          {session ? (
+            <>
+              <Typography.Text code copyable>
+                {session.address}
+              </Typography.Text>
+              <Button loading={disconnecting} disabled={locked} onClick={onDisconnect}>
+                {disconnecting ? "Disconnecting…" : "Disconnect"}
+              </Button>
+              {canFund && (
+                <Button loading={funding} disabled={locked} onClick={onFund}>
+                  {funding ? "Requesting funds…" : "Fund from faucet"}
+                </Button>
+              )}
+            </>
+          ) : (
+            <>
+              <Button
+                type="primary"
+                loading={connecting}
+                disabled={!selected || locked}
+                onClick={onConnect}
+              >
+                {connecting
+                  ? `Waiting for approval in ${selected?.name ?? "wallet"}…`
+                  : selected
+                    ? `Connect ${selected.name}`
+                    : "Pick a wallet to connect"}
+              </Button>
+              {connecting && (
+                <Button type="text" onClick={onCancelConnect}>
+                  Cancel
+                </Button>
+              )}
+            </>
+          )}
+        </Space>
+
+        {connecting && (
+          <div role="status">
+            <Typography.Text type="secondary">
+              {approving
+                ? `Scan the QR code with ${selected?.name} to approve.`
+                : `Approve the request in the ${selected?.name} popup.`}{" "}
+              Cancel stops waiting and ignores the result.
+            </Typography.Text>
+          </div>
+        )}
+
+        {connect.status === "error" && isCancelled(connect.error) && (
+          <div role="status">
+            <Typography.Text type="secondary">Cancelled. Nothing was connected.</Typography.Text>
+          </div>
+        )}
+        {connect.status === "error" && !isCancelled(connect.error) && (
+          <UserErrorAlert
+            error={toUserError(connect.error)}
+            onRetry={onConnect}
+            onDismiss={connect.reset}
+          />
+        )}
+        {fund.status === "success" && (
+          <Alert
+            type="success"
+            showIcon
+            title="Account funded"
+            description={fundMessage(fund.data)}
+            closable={{ onClose: fund.reset, "aria-label": "Dismiss" }}
+          />
+        )}
+        {fund.status === "error" && (
+          <UserErrorAlert error={toUserError(fund.error)} onRetry={onFund} onDismiss={fund.reset} />
+        )}
+      </Flex>
+    </Card>
   );
 }

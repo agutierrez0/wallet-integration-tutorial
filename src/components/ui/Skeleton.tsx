@@ -1,4 +1,4 @@
-import "./ui.css";
+import { Skeleton as AntSkeleton } from "antd";
 import type { CSSProperties } from "react";
 
 interface SkeletonProps {
@@ -9,11 +9,9 @@ interface SkeletonProps {
 
 export function Skeleton({ width = "100%", height = 14, className }: SkeletonProps) {
   return (
-    <span
-      className={`ui-skeleton${className ? ` ${className}` : ""}`}
-      style={{ width, height }}
-      aria-hidden="true"
-    />
+    <span aria-hidden="true" className={className} style={{ display: "block", width }}>
+      <AntSkeleton.Input active block size="small" style={{ height, minWidth: 0 }} />
+    </span>
   );
 }
 
@@ -25,12 +23,9 @@ interface SkeletonBlockProps {
 // Placeholder for a pending output panel (e.g. while signing).
 export function SkeletonBlock({ lines = 4, label = "Loading" }: SkeletonBlockProps) {
   return (
-    <div className="ui-skeleton-block" role="status" aria-live="polite" aria-busy="true">
+    <div role="status" aria-live="polite" aria-busy="true">
       <span className="ui-sr-only">{label}</span>
-      {Array.from({ length: lines }, (_, i) => (
-        // biome-ignore lint/suspicious/noArrayIndexKey: fixed-length decorative placeholder, never reordered
-        <Skeleton key={i} width={i === lines - 1 ? "60%" : "100%"} />
-      ))}
+      <AntSkeleton active title={false} paragraph={{ rows: lines }} aria-hidden="true" />
     </div>
   );
 }

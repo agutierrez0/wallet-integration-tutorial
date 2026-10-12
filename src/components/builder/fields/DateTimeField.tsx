@@ -1,11 +1,18 @@
-import { FieldShell, type FieldProps } from "./FieldShell";
+import { DatePicker } from "antd";
+import dayjs from "dayjs";
+import utc from "dayjs/plugin/utc";
+import { type FieldProps, FieldShell, Hint } from "./FieldShell";
+
+dayjs.extend(utc);
+
+// The schema stores "YYYY-MM-DDTHH:mm:ss" in UTC, the same shape <input type="datetime-local"> uses.
+const STORED = "YYYY-MM-DDTHH:mm:ss";
 
 const QUICK_FILLS = [
   { label: "In 1 hour", ms: 60 * 60 * 1000 },
   { label: "In 1 day", ms: 24 * 60 * 60 * 1000 },
 ];
 
-// "YYYY-MM-DDTHH:mm:ss" in UTC, the same shape <input type="datetime-local"> uses.
 export function utcValueAfter(ms: number, now = Date.now()): string {
   return new Date(now + ms).toISOString().slice(0, 19);
 }
@@ -16,7 +23,7 @@ function localEquivalent(v: string): string | null {
   return Number.isNaN(d.getTime()) ? null : d.toLocaleString();
 }
 
-// The browser's picker only has wall-clock values; this field always means UTC.
+// Always UTC: values are parsed and shown as UTC digits, never converted to local time.
 export function DateTimeField({
   def,
   value,
@@ -26,58 +33,37 @@ export function DateTimeField({
   disabled,
 }: FieldProps<string>) {
   const v = typeof value === "string" ? value : "";
+  const parsed = v ? dayjs.utc(v) : null;
   const local = localEquivalent(v);
 
   return (
     <FieldShell def={def} error={error}>
       {({ id, describedBy, invalid, required }) => (
         <>
-          <div className="txf-input-wrap">
-            <input
-              id={id}
-              className="txf-input txf-num"
-              type="datetime-local"
-              step={1}
-              value={v}
-              disabled={disabled}
-              aria-invalid={invalid || undefined}
-              required={required || undefined}
-              aria-describedby={describedBy}
-              onChange={(e) => onChange(e.target.value)}
-              onBlur={onBlur}
-            />
-            <span className="txf-suffix" aria-hidden="true">
-              UTC
-            </span>
-          </div>
-          <div className="txf-quick">
-            {QUICK_FILLS.map((q) => (
-              <button
-                key={q.label}
-                type="button"
-                className="txf-chip"
-                disabled={disabled}
-                onClick={() => onChange(utcValueAfter(q.ms))}
-              >
-                {q.label}
-              </button>
-            ))}
-            {v && (
-              <button
-                type="button"
-                className="txf-chip"
-                disabled={disabled}
-                onClick={() => onChange("")}
-              >
-                Clear
-              </button>
-            )}
-          </div>
-          <p className="txf-hint" aria-live="polite">
+          <DatePicker
+            id={id}
+            showTime={{ format: "HH:mm:ss" }}
+            format="YYYY-MM-DD HH:mm:ss [UTC]"
+            style={{ width: "100%" }}
+            value={parsed?.isValid() ? parsed : null}
+            disabled={disabled}
+            status={invalid ? "error" : undefined}
+            showNow={false}
+            aria-invalid={invalid || undefined}
+            aria-required={required || undefined}
+            aria-describedby={describedBy}
+            presets={QUICK_FILLS.map((q) => ({
+              label: q.label,
+              value: () => dayjs.utc().add(q.ms, "millisecond"),
+            }))}
+            onChange={(d) => onChange(d ? d.format(STORED) : "")}
+            onBlur={onBlur}
+          />
+          <Hint>
             {local
               ? `Time is UTC, not your local time. In your timezone: ${local}.`
               : "Time is UTC, not your local time."}
-          </p>
+          </Hint>
         </>
       )}
     </FieldShell>

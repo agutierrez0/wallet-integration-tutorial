@@ -1,4 +1,5 @@
-import { FieldShell, type FieldProps } from "./FieldShell";
+import { Input, Space } from "antd";
+import { type FieldProps, FieldShell, Hint } from "./FieldShell";
 
 // Keep digits and a single dot, at most 6 decimals (1 drop = 0.000001 XRP).
 export function sanitizeXrp(input: string): string {
@@ -24,9 +25,9 @@ export function DropsHint({ xrp }: { xrp: string }) {
   const drops = xrpToDrops(xrp);
   if (drops === null) return null;
   return (
-    <p className="txf-hint" aria-live="polite">
+    <Hint>
       = {drops.toLocaleString("en-US")} drop{drops === 1n ? "" : "s"}
-    </p>
+    </Hint>
   );
 }
 
@@ -36,15 +37,14 @@ export function XrpField({ def, value, onChange, onBlur, error, disabled }: Fiel
     <FieldShell def={def} error={error}>
       {({ id, describedBy, invalid, required }) => (
         <>
-          <div className="txf-input-wrap">
-            <input
+          <Space.Compact block>
+            <Input
               id={id}
-              className="txf-input txf-num"
-              type="text"
               inputMode="decimal"
               value={v}
               placeholder={def.placeholder ?? "0.0"}
               disabled={disabled}
+              status={invalid ? "error" : undefined}
               autoComplete="off"
               aria-invalid={invalid || undefined}
               aria-required={required || undefined}
@@ -52,10 +52,8 @@ export function XrpField({ def, value, onChange, onBlur, error, disabled }: Fiel
               onChange={(e) => onChange(sanitizeXrp(e.target.value))}
               onBlur={onBlur}
             />
-            <span className="txf-suffix" aria-hidden="true">
-              XRP
-            </span>
-          </div>
+            <Space.Addon>XRP</Space.Addon>
+          </Space.Compact>
           <DropsHint xrp={v} />
         </>
       )}

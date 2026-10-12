@@ -1,6 +1,6 @@
+import { Card, Flex, Typography, theme } from "antd";
 import { CATEGORIES, SCHEMAS, buildTx, isFieldActive } from "../../lib/txSchemas";
 import type { FieldErrors, FormValues, TxSchema } from "../../lib/txSchemaTypes";
-import { CopyBlock } from "../CopyBlock";
 import { TxForm } from "./TxForm";
 import { TypeSelector } from "./TypeSelector";
 
@@ -44,8 +44,9 @@ export function TxBuilder({
   onSelectType,
   onChange,
 }: Props) {
+  const { token } = theme.useToken();
   return (
-    <div className="tx-builder">
+    <Flex vertical gap={token.marginLG}>
       <TypeSelector
         schemas={SCHEMAS}
         categories={CATEGORIES}
@@ -65,13 +66,34 @@ export function TxBuilder({
             showAllErrors={showAllErrors}
             resetKey={resetKey}
           />
-          <CopyBlock label="Transaction JSON (preview)" value={preview} />
-          <p className="muted">
+          <Card
+            size="small"
+            title="Transaction JSON (preview)"
+            extra={
+              <Typography.Text
+                copyable={{ text: preview, tooltips: ["Copy JSON", "Copied"] }}
+                aria-label="Copy transaction JSON"
+              />
+            }
+          >
+            <pre
+              style={{
+                margin: 0,
+                maxHeight: 280,
+                overflow: "auto",
+                fontFamily: token.fontFamilyCode,
+                fontSize: token.fontSizeSM,
+              }}
+            >
+              {preview}
+            </pre>
+          </Card>
+          <Typography.Text type="secondary">
             Fee, Sequence and LastLedgerSequence are filled in automatically when you sign.
             {!account && " Account is added from your connected wallet."}
-          </p>
+          </Typography.Text>
         </>
       )}
-    </div>
+    </Flex>
   );
 }
