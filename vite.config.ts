@@ -8,7 +8,10 @@ export default defineConfig({
   plugins: [react()],
   // The Ledger libraries need the npm `buffer` package, not the Node built-in.
   resolve: { alias: { buffer: "buffer/" } },
-  test: { exclude: ["node_modules/**", "server/**", "dist/**"] },
+  test: {
+    exclude: ["node_modules/**", "server/**", "dist/**"],
+    setupFiles: ["./src/test/setup.ts"],
+  },
   server: {
     host: true,
     port: 3000,
