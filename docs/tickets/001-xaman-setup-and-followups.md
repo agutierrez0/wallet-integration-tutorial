@@ -7,18 +7,19 @@ with check-on-chain, automatic result lookup after wallet submits, server rate l
 hardening, CI/Dependabot/licence, docs. Nothing below has run against real Xaman credentials,
 a real Ledger, or Docker.
 
-## 1. Rotate the leaked Xaman key (REQUIRED, do first)
-A Xumm/Xaman API secret and key were hardcoded in source in this public repo.
-- File: `src/utils/xamanwallet.js` (X-API-Secret / X-API-Key headers), commit `89f85c1` (2024-05-29)
-  and earlier (`e852c48`, 2024-05-02).
-- That history is reachable from `main`, `ledger-integration`, `signing-test`, `xrpl-integration`.
-- A third key (in `src/App.js`, an earlier commit) is reported but **unconfirmed**; check it.
+## 1. Leaked Xaman credentials (history cleaned; revocation still open)
+Three Xumm/Xaman credential values were hardcoded in source in this public repo's early history:
+two in `src/utils/xamanwallet.js` (commit `89f85c1` and earlier) and one in `src/App.js` (confirmed).
+- [x] History rewritten and force-pushed: every commit on `main`, `ledger-integration`, `signing-test`,
+      `xrpl-integration`, `wip-may-1` and both tags no longer contains them. The five Dependabot branches
+      (which carried the old history) were deleted; Dependabot will recreate its own.
+- [x] Local clone reset to the new history. Any other clone must be re-cloned.
+- [ ] **Still compromised.** Anyone who cloned before has them, and GitHub keeps the old commits reachable
+      through read-only `refs/pull/*` references. Ask GitHub support to remove cached views and the old
+      commits ("remove sensitive data"). The repo owner can no longer revoke the keys in the Xaman console,
+      so contact Xaman support to revoke that app's credentials.
+- [x] The new server credentials are from a new Xaman app, not the leaked one. Keep it that way.
 - The deleted `.env` only held an empty `REACT_APP_XUMM_API_KEY=`; it was not the leak.
-- [ ] Revoke/regenerate the key pair in the Xaman developer console (https://apps.xumm.dev).
-- [ ] Make sure the new server's credentials are NOT the leaked app.
-- [ ] Optional, your call: rewrite history with `git filter-repo` and force-push. This rewrites
-      every branch and breaks existing clones, and does not un-leak a key that was already public.
-      Rotation is what actually protects you.
 
 ## 2. First live Xaman test (needs Angel)
 - [ ] Create a Xaman developer app; `cp server/.env.example server/.env` and fill
