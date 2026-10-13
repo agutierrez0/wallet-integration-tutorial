@@ -21,13 +21,15 @@ services:
       target: runner
     restart: unless-stopped
     # Not published to the host: reachable only from web over the internal network
+    # Explicit ${VAR} interpolation: Coolify only injects its runtime variables this way, and a bare
+    # list entry can arrive empty (an empty ALLOW_MAINNET fails config validation).
     environment:
-      - XAMAN_API_KEY
-      - XAMAN_API_SECRET
-      - ALLOWED_ORIGIN
-      - TRUST_PROXY=true
+      XAMAN_API_KEY: ${XAMAN_API_KEY}
+      XAMAN_API_SECRET: ${XAMAN_API_SECRET}
+      ALLOWED_ORIGIN: ${ALLOWED_ORIGIN}
+      TRUST_PROXY: "true"
       # Unset = false: mainnet payloads are refused. Set to true only on purpose.
-      - ALLOW_MAINNET
+      ALLOW_MAINNET: ${ALLOW_MAINNET:-false}
     networks:
       default:
         # Unique alias: `server` is a common name on shared networks, so nginx targets this instead.
