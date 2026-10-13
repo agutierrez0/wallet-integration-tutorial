@@ -8,6 +8,12 @@ services:
     restart: unless-stopped
     depends_on:
       - server
+    expose:
+      - "3000"
+    # Traefik (Coolify proxy) reaches web over the external `coolify` network; server stays internal.
+    networks:
+      - default
+      - coolify
 
   server:
     build:
@@ -22,7 +28,14 @@ services:
       - TRUST_PROXY=true
       # Unset = false: mainnet payloads are refused. Set to true only on purpose.
       - ALLOW_MAINNET
+    networks:
+      default:
+        # Unique alias: `server` is a common name on shared networks, so nginx targets this instead.
+        aliases:
+          - xrpl-wallet-server
 
 networks:
   default:
     name: xrpl-wallet-integration-prod-network
+  coolify:
+    external: true
