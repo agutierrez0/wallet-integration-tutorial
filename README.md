@@ -132,6 +132,8 @@ Production (`docker-compose.prod.yml`, e.g. a Docker Compose resource on Coolify
 
 `scripts/` has headless Python and JS examples (see its README). CI (`.github/workflows/ci.yml`) runs install, lint (web), typecheck, tests and build for the web app and the server, plus a `docker compose -f docker-compose.prod.yml build` job. Dependabot covers npm, GitHub Actions, Docker and pip.
 
+**Deploys:** every push to `main` deploys https://xrpl.bxbox.tech (`.github/workflows/deploy.yml` calls the Coolify deploy API with the `COOLIFY_API_TOKEN` repo secret). There are no tags or release steps.
+
 ## Security notes
 
 - **A Xumm/Xaman API secret and key (and a second key in `src/App.js`) were hardcoded in source in this public repo's early git history.** Three credential values were found. The history was rewritten and force-pushed to remove them from every branch and tag, but **treat them as compromised**: anyone who cloned earlier still has them, and GitHub keeps the old commits reachable through read-only pull request references until GitHub support purges them. They could not be revoked from the repo owner's side, so contact Xaman support to have that app's credentials revoked, and never reuse them. The `.env` that was deleted from this repo only ever held an empty key.
